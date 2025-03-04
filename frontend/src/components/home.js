@@ -28,14 +28,21 @@ const Home = () => {
 
     const fetchSSLDetails = async () => {
         if (!isValid) return toast.error("Enter a valid URL");
-
+    
+        let formattedUrl;
+        try {
+            formattedUrl = new URL(url).origin; 
+        } catch (error) {
+            return toast.error("Invalid URL format");
+        }
+    
         setLoading(true);
         try {
             const response = await fetch(`${baseUrl}/fetch-ssl`, {
                 method: "POST",
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url })
+                body: JSON.stringify({ url: formattedUrl }) // Send only the main domain
             });
 
             const data = await response.json();
@@ -65,12 +72,20 @@ const Home = () => {
             return toast.error("Please enter a valid email address");
         }    
         setLoading(true);
+
+
+        let formattedUrl;
+        try {
+            formattedUrl = new URL(url).origin; 
+        } catch (error) {
+            return toast.error("Invalid URL format");
+        }
         try {
             const response = await fetch(`${baseUrl}/mail-to-sitemanager`, {
                 method: "POST",
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url, siteManager, email })
+                body: JSON.stringify({ url: formattedUrl, siteManager, email })
             });
 
             const data = await response.json();
@@ -158,7 +173,7 @@ const Home = () => {
                     disabled={loading}
                 >
                     <span class="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-transparent group-hover:dark:bg-transparent">
-                        {loading ? "Saving..." : "Save Manager Details"}
+                        {loading ? "Saving..." : "Send Email to Site Manager"}
                     </span>
 
                 </button>

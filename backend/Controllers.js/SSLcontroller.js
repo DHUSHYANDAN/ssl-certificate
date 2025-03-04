@@ -34,8 +34,13 @@ const checkAndFetchSSL = async (req, res) => {
           if (!certificate || Object.keys(certificate).length === 0) {
             return res.status(400).json({ message: "No SSL certificate found" });
           }
+          
 
-          const sslData = {
+            const lastSSL = await SSLDetails.findOne().sort({ sslId: -1 });
+            const newSSLId = lastSSL ? lastSSL.sslId + 1 : 1;
+
+            const sslData = {
+            sslId: newSSLId,
             url,
             issuedTo: {
               commonName: certificate.subject?.CN || "Unknown",
@@ -49,7 +54,7 @@ const checkAndFetchSSL = async (req, res) => {
             validTo: certificate.valid_to,
             siteManager: "", 
             email: "",
-          };
+            };
 
           await SSLDetails.findOneAndUpdate({ url }, sslData, { upsert: true });
 
@@ -90,6 +95,7 @@ const storeManagerAndSendMail = async (req, res) => {
       sslData.siteManager = siteManager;
       sslData.email = email;
       await sslData.save();
+  
   
       sendEmailToManager(sslData);
   
@@ -141,5 +147,51 @@ const storeManagerAndSendMail = async (req, res) => {
       res.status(500).json({ message: "Error retrieving SSL details", error: error.message });
     }
   };
+
+  const updateSSLDetails = async (req, res) => {
+    const { url, ...updateData } = req.body; 
   
-  module.exports = { checkAndFetchSSL, storeManagerAndSendMail, getAllSSLDetails };
+    if (!url) {
+      return res.status(400).json({ message: "URL is required" });
+    }
+  
+    try {
+      const updatedSSL = await SSLDetails.findOneAndUpdate({ url: url }, updateData, { new: true });
+  
+      if (!updatedSSL) {
+        return res.status(404).json({ message: "SSL details not found for this URL" });
+      }
+  
+      res.status(200).json({ message: "SSL details updated", data: updatedSSL });
+    } catch (error) {
+      res.status(500).json({ message: "Error updating SSL details", error: error.message });
+    }
+  };
+  
+
+  
+  const deleteSSLDetails = async (req, res) => {
+    const { sslId } = req.body; 
+
+    if (!sslId) {
+        return res.status(400).json({ message: "SSL ID is required" });
+    }
+
+    try {
+        const deletedSSL = await SSLDetails.findOneAndDelete({ sslId: sslId });
+
+        if (!deletedSSL) {
+            return res.status(404).json({ message: "SSL details not found for this SSL ID" });
+        }
+
+        res.status(200).json({ message: "SSL details deleted", data: deletedSSL });
+    } catch (error) {
+        res.status(500).json({ message: "Error deleting SSL details", error: error.message });
+    }
+};
+
+
+module.exports = { checkAndFetchSSL, storeManagerAndSendMail, getAllSSLDetails, updateSSLDetails, deleteSSLDetails };
+
+
+

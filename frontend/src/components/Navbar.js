@@ -7,6 +7,7 @@ import baseUrl from "../URL";
 
 const Navbars = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -25,6 +26,14 @@ const Navbars = () => {
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   // Logout function
   const handleLogout = async () => {
     try {
@@ -41,6 +50,12 @@ const Navbars = () => {
   };
 
   return (
+    <>
+    {loading && (
+      <div className="fixed inset-0 z-30 flex items-center justify-center text-2xl font-semibold text-white bg-gray-500 bg-opacity-50">
+        Loading.....
+      </div>
+    )}
     <nav className="bg-white shadow-md sticky w-full z-10 top-0 border-b border-gray-200">
       <ToastContainer position="top-right" autoClose={3000} />
       <div className="mx-auto px-4 sm:px-6 lg:px-8">
@@ -82,7 +97,7 @@ const Navbars = () => {
                   className="hover:text-white shadow-xl font-bold hover:bg-blue-500 px-4 rounded-lg"
                   onClick={() => navigate("/database")}
                 >
-                  Database
+                  URL Monitored
                 </button>
                 <button
                   className="hover:text-white shadow-xl font-bold hover:bg-red-500 px-4 py-1 rounded-lg"
@@ -196,7 +211,7 @@ const Navbars = () => {
           </div>
         </div>
       )}
-    </nav>
+    </nav></>
   );
 };
 

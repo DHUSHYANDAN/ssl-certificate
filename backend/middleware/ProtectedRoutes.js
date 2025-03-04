@@ -1,5 +1,5 @@
 
-const User = require("../models/userdb"); //  Import the User model
+const User = require("../models/userdb");
 const jwt = require("jsonwebtoken");
 
 

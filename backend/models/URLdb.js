@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 
 const UrlSchema = new mongoose.Schema({
+  sslId: { type: Number ,required: true },
   url: { type: String, required: true, unique: true },
   issuedTo: {
     commonName: { type: String, required: true },
@@ -16,9 +17,10 @@ const UrlSchema = new mongoose.Schema({
   email: { 
     type: String, 
     required: [true, 'Email is required'],
-   
     match: [/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/, 'Please enter a valid email address']
-},
+  },
 });
+
+
 
 module.exports = mongoose.model("SSLDetails", UrlSchema);

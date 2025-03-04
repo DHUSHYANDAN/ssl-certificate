@@ -31,13 +31,13 @@ const SignIn = () => {
         if (!validate()) return;
 
         try {
-            const response = await axios.post(
+            await axios.post(
                 `${baseUrl}/login`, 
                 { email, password },
                 { withCredentials: true } 
             );
             toast.success("Login successful!");
-          localStorage.setItem('name',response.data.user.name);
+        
      
             setTimeout(() => {
                 window.location.href = '/home'; 
