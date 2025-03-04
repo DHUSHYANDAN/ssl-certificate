@@ -56,7 +56,7 @@ const Navbars = () => {
         Loading.....
       </div>
     )}
-    <nav className="bg-white shadow-md sticky w-full z-10 top-0 border-b border-gray-200">
+    <nav className={`bg-white shadow-md sticky w-full z-10 top-0 border-b border-gray-200 ${user ? 'bg-cover bg-center' : ''}`} style={user ? { backgroundImage: "url('./landingpage2.png')" } : {}}>
       <ToastContainer position="top-right" autoClose={3000} />
       <div className="mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20 items-center">
@@ -98,6 +98,12 @@ const Navbars = () => {
                   onClick={() => navigate("/database")}
                 >
                   URL Monitored
+                </button>
+                <button
+                  className="hover:text-white shadow-xl font-bold hover:bg-blue-500 px-4 rounded-lg"
+                  onClick={() => navigate("/settings")}
+                >
+                  Settings
                 </button>
                 <button
                   className="hover:text-white shadow-xl font-bold hover:bg-red-500 px-4 py-1 rounded-lg"
@@ -170,7 +176,15 @@ const Navbars = () => {
                     className="w-1/2 hover:text-white text-blue-600 font-bold bg-gray-300 hover:bg-blue-600 px-4 py-2 rounded-lg"
                     onClick={() => navigate("/database")}
                   >
-                    Database
+                    URL Monitored
+                  </button>
+                </div>
+                <div className="flex justify-center">
+                  <button
+                    className="w-1/2 hover:text-white text-blue-600 font-bold bg-gray-300 hover:bg-blue-600 px-4 py-2 rounded-lg"
+                    onClick={() => navigate("/settings")}
+                  >
+                    Settings
                   </button>
                 </div>
                 <div className="flex justify-center">

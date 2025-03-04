@@ -68,8 +68,47 @@ const SSLTable = () => {
           if (diffDays <= 0) {
             return 'Expired';
           }
-          return `${diffDays} days`;
+            if (diffDays > 160) {
+              return (
+              <span>
+                {`${diffDays} days`}
+                <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: 'green', borderRadius: '50%', marginLeft: '5px' }}></span>
+              </span>
+              );
+            } else if (diffDays > 120) {
+              return (
+              <span>
+                {`${diffDays} days`}
+                <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: 'oklch(0.795 0.184 86.047)', borderRadius: '50%', marginLeft: '5px' }}></span>
+              </span>
+              );
+            } else if (diffDays > 80) {
+              return (
+              <span>
+                {`${diffDays} days`}
+                <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: 'orange', borderRadius: '50%', marginLeft: '5px' }}></span>
+              </span>
+              );
+            } else if (diffDays > 40) {
+              return (
+              <span>
+                {`${diffDays} days`}
+                <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: 'red', borderRadius: '50%', marginLeft: '5px' }}></span>
+              </span>
+              );
+            } else {
+              return (
+              <span>
+                {`${diffDays} days`}
+                <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: 'darkred', borderRadius: '50%', marginLeft: '5px' }}></span>
+              </span>
+              );
+            }
         },
+        muiTableBodyCellProps: {
+          sx: {
+            textAlign: 'center',
+          },},
       },
       {
         accessorKey: 'siteManager',
@@ -172,17 +211,17 @@ const SSLTable = () => {
           state={{ isLoading }}
           muiTableHeadCellProps={{
             sx: {
-              backgroundColor: 'rgba(0, 0, 0, 0.9)', 
-              color: 'white',
+              backgroundColor: 'oklch(0.828 0.111 230.318)', 
+              color: 'black',
               fontWeight: 'bold',
               fontSize: '1rem',
-              borderBottom: '2px solid #0d47a',
+              border: '1px solid lightgray',
             },
           }}
           // Row styling: alternate row colors and hover effect
           muiTableBodyRowProps={({ row }) => ({
             sx: {
-              backgroundColor: row.index % 2 ? '#f0f0f0' : '#ffffff', 
+              backgroundColor: row.index % 2 ? 'oklch(0.982 0.018 155.826)' : '#ffffff', 
               '&:hover': {
                 backgroundColor: 'lightyellow', 
               },
