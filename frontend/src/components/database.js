@@ -181,6 +181,7 @@ const SSLTable = () => {
   return (
     <div className="bg-cover screen-h bg-center" style={{ backgroundImage: "url('./landingpage2.png')" }}>
       <Box sx={{ p: 2,height: '100vh', overflow: 'auto' }}>
+        
         <MaterialReactTable
           columns={columns}
           data={sslDetails}

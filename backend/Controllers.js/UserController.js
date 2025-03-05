@@ -1,5 +1,7 @@
 const User = require("../models/userdb");
+const Schedule = require("../models/schedule");
 const bcrypt = require("bcryptjs");
+
 const jwt = require("jsonwebtoken");
 
 // Generate JWT Token
@@ -58,10 +60,31 @@ const loginUser = async (req, res) => {
     }
 };
 
+//update the loginuser
+const updateUser = async (req, res) => {
+    const { name, email, password ,cronSchedule} = req.body;
+    try {
+        let user = await User.findOneAndUpdate(
+            { email }, 
+            { name,email, password, cronSchedule },
+            { new: true } 
+        );
+        if (!user) return res.status(400).json({ message: "User does not exist" });
+        res.json({ message: "User updated successfully", user });
+    } catch (error) {
+        console.error('Error in updating user:', error);
+        res.status(500).json({ error: 'Error in updating user' });
+    }
+}
+
+
 // Logout User
 const logoutUser = (req, res) => {
     res.clearCookie("jwt");
     res.json({ message: "Logged out successfully" });
 };
 
-module.exports = { registerUser, loginUser, logoutUser };
+
+
+
+module.exports = { registerUser, loginUser, logoutUser, updateUser };

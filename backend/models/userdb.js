@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
     match: [/.+\@.+\..+/, "Please enter a valid email address"],
   },
   password: { type: String, required: true, minlength: 6 },
+ 
 });
 
 // Hash password before saving
