@@ -144,17 +144,17 @@ const Navbars = () => {
           <div className="px-4 pb-3 space-y-2">
             {!user ? (
               <>
-                <div className="flex justify-center">
+                <div className="flex  sm:justify-center"> 
                   <button
-                    className="w-1/2 hover:text-white text-blue-600 font-bold bg-gray-300 hover:bg-blue-600 px-4 py-2 rounded-md"
+                    className="sm:w-1/2 w-full hover:text-white  text-left sm:text-center font-bold hover:bg-blue-600 px-4 py-2 rounded-md"
                     onClick={() => navigate("/signUp")}
                   >
                     Sign Up
                   </button>
                 </div>
-                <div className="flex justify-center">
+                <div className="flex sm:justify-center">
                   <button
-                    className="w-1/2 hover:text-white text-blue-600 font-bold bg-gray-300 hover:bg-blue-600 px-4 py-2 rounded-md"
+                    className="sm:w-1/2 w-full hover:text-white  text-left sm:text-center font-bold hover:bg-blue-600 px-4 py-2 rounded-md"
                     onClick={() => navigate("/signIn")}
                   >
                     Sign In
@@ -163,33 +163,33 @@ const Navbars = () => {
               </>
             ) : (
               <>
-                <div className="flex justify-center">
+                <div className="flex sm:justify-center">
                   <button
-                    className="w-1/2 hover:text-white text-blue-600 font-bold bg-gray-300 hover:bg-blue-600 px-4 py-2 rounded-lg"
+                    className="sm:w-1/2 w-full hover:text-white border-b-2 border-dashed text-left sm:text-center font-bold hover:bg-blue-600 px-4 py-2 rounded-md"
                     onClick={() => navigate("/home")}
                   >
                     Home
                   </button>
                 </div>
-                <div className="flex justify-center">
+                <div className="flex sm:justify-center">
                   <button
-                    className="w-1/2 hover:text-white text-blue-600 font-bold bg-gray-300 hover:bg-blue-600 px-4 py-2 rounded-lg"
+                    className="sm:w-1/2 w-full hover:text-white border-b-2 border-dashed  text-left sm:text-center font-bold hover:bg-blue-600 px-4 py-2 rounded-md"
                     onClick={() => navigate("/database")}
                   >
                     URL Monitored
                   </button>
                 </div>
-                <div className="flex justify-center">
+                <div className="flex sm:justify-center">
                   <button
-                    className="w-1/2 hover:text-white text-blue-600 font-bold bg-gray-300 hover:bg-blue-600 px-4 py-2 rounded-lg"
+                    className="sm:w-1/2 w-full hover:text-white border-b-2 border-dashed text-left sm:text-center font-bold hover:bg-blue-600 px-4 py-2 rounded-md"
                     onClick={() => navigate("/settings")}
                   >
                     Settings
                   </button>
                 </div>
-                <div className="flex justify-center">
+                <div className="flex sm:justify-center">
                   <button
-                    className="w-1/2 hover:text-white text-red-600 font-bold bg-gray-300 hover:bg-red-600 px-4 py-2 rounded-lg"
+                    className="sm:w-1/2 w-full hover:text-white border-b-2 border-dashed  text-left sm:text-center font-bold hover:bg-blue-600 px-4 py-2 rounded-md"
                     onClick={() => setShowLogoutModal(true)}
                   >
                     Log Out
