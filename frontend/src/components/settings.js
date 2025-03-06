@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import baseUrl from "../URL";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 
 const Settings = () => {
   const [minute, setMinute] = useState("*");
@@ -62,7 +62,7 @@ const Settings = () => {
   return (
     <div className="bg-cover h-[100vh] flex items-center  bg-center" style={{ backgroundImage: "url('./landingpage2.png')" }}> 
     <div className=" sm:w-1/2 mx-auto bg-gray-300 opacity-85 shadow-lg rounded-xl p-6  ">
-      <ToastContainer position="top-right" autoClose={3000} />
+      {/* <ToastContainer position="down-right" className="" autoClose={3000} /> */}
       <h2 className="text-xl font-bold text-gray-900 mb-4">Daily Schedule Settings</h2>
 
       <div className="grid grid-cols-2 gap-4">

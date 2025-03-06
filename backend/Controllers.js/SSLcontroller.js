@@ -371,7 +371,7 @@ const updateCronSchedule = async (req, res) => {
       return res.status(400).json({ message: "Invalid cron schedule format" });
     }
 
-    cronSchedule = cronSchedule.trim(); // Remove extra spaces
+    cronSchedule = cronSchedule.trim();
 
     if (!isValidCron(cronSchedule)) {
       return res.status(400).json({ message: "Invalid cron syntax" });
@@ -430,7 +430,7 @@ const scheduleCronJob = async () => {
 
     cronJob.start(); // Ensure the new job starts
   } catch (error) {
-    console.error("❌ Error scheduling cron job:", error);
+    console.error(" Error scheduling cron job:", error);
   }
 };
 
