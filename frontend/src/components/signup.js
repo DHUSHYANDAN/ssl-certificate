@@ -173,12 +173,14 @@ const Signup = () => {
     return (
         <div className="flex justify-center items-center  bg-gray-100  h-screen bg-cover bg-center" style={{ backgroundImage: "url('./signin2.jpg')" } }>
             <form className="bg-white p-8 rounded shadow-md opacity-85 w-full max-w-md" onSubmit={handleSubmit}>
+            <div className=' text-center'>
             <img
                     src="./ZigIcon.icon"
-                    className="h-14 mx-auto"
+                    className="h-14 pb-2 text-center inline"
                     alt="Zigma Logo"
                 />
-                <h2 className="text-2xl font-bold mb-6 text-center text-blue-700">Sign Up</h2>
+                <h className="text-2xl font-mono text-center pt-1 font-bold">CertMonitor</h></div>
+                <h2 className="text-lg font-serif mb-6 text-center text-blue-700">Get Started – Create Your Account Now! </h2>
 
                 {/* Name Field */}
                 <div className="mb-4">

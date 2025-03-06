@@ -19,6 +19,18 @@ const SSLTable = () => {
   const columns = useMemo(
     () => [
       {
+        accessorKey: 'id',
+        header: 'S.No',
+        size: 50,
+        enableEditing: false, 
+        Cell: ({ row }) => row.index + 1, 
+
+        muiTableBodyCellProps: {
+          sx: {
+            textAlign: 'center',
+          },},
+      },
+      {
         accessorKey: 'url',
         header: 'URL',
         size: 200,
@@ -48,12 +60,23 @@ const SSLTable = () => {
         accessorKey: 'validFrom',
         header: 'Valid From',
         enableEditing: false,
+        accessorFn: (row) => {
+          const gmtDate = new Date(row.validFrom);
+          const istDate = new Date(gmtDate.getTime() + 5.5 * 60 * 60 * 1000); 
+          return istDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        },
       },
       {
         accessorKey: 'validTo',
         header: 'Valid To',
-        enableEditing: false, 
+        enableEditing: false,
+        accessorFn: (row) => {
+          const gmtDate = new Date(row.validTo);
+          const istDate = new Date(gmtDate.getTime() + 5.5 * 60 * 60 * 1000); 
+          return istDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        },
       },
+      
       {
         id: 'timeDuration',
         header: 'Time Duration',
@@ -121,7 +144,29 @@ const SSLTable = () => {
         header: 'Email',
         enableEditing: true,
       
-      }
+      },
+       
+    {
+      id: 'actions',
+      header: 'Actions',
+
+      size: 100,
+      enableEditing: false,
+      Cell: ({ row, table }) => (
+        <Box sx={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <Tooltip title="Edit">
+            <IconButton onClick={() => table.setEditingRow(row)}>
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton color="error" onClick={() => openDeleteModal(row.original.sslId)}>
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    }
       
       
     ],
@@ -181,11 +226,13 @@ const SSLTable = () => {
   return (
     <div className="bg-cover screen-h bg-center" style={{ backgroundImage: "url('./landingpage2.png')" }}>
       <Box sx={{ p: 2,height: '100vh', overflow: 'auto' }}>
+
+        <h1 className='font-bold text-2xl text-center mb-1'>SSL Certificate Details Monitoring</h1>
         
         <MaterialReactTable
           columns={columns}
           data={sslDetails}
-          enableEditing
+         
           initialState={{
             columnVisibility: {
               'issuedTo.commonName': false,
