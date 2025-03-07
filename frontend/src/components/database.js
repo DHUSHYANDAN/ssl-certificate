@@ -13,10 +13,31 @@ import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import baseUrl from '../URL';
+import { TextField, InputAdornment } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+
 
 const SSLTable = ({ loading, setLoading }) => {
   const queryClient = useQueryClient();
-  
+   const { data: sslDetails = [], isLoading } = useGetSSLDetails();
+
+  // 🔍 Global Search State
+  const [globalFilter, setGlobalFilter] = useState('');
+
+  // 📌 Custom Global Filter Function
+  const filteredData = useMemo(() => {
+    if (!globalFilter) return sslDetails; // If no filter, return original data
+
+    const lowerCaseFilter = globalFilter.toLowerCase();
+    
+    return sslDetails.filter((row) =>
+      Object.values(row).some(
+        (value) =>
+          value &&
+          String(value).toLowerCase().includes(lowerCaseFilter)
+      )
+    );
+  }, [globalFilter, sslDetails]);
   const columns = useMemo(
     () => [
       {
@@ -24,6 +45,7 @@ const SSLTable = ({ loading, setLoading }) => {
         header: 'S.No',
         size: 50,
         enableEditing: false, 
+        Edit: () => null,
         Cell: ({ row }) => row.index + 1, 
 
         muiTableBodyCellProps: {
@@ -36,26 +58,32 @@ const SSLTable = ({ loading, setLoading }) => {
         header: 'URL',
         size: 200,
         enableEditing: false, // read-only
+        
       },
       {
         accessorKey: 'issuedTo.commonName',
         header: 'Issued To CN',
         enableEditing: false, 
+        Edit: () => null,
       },
       {
         accessorKey: 'issuedTo.organization',
         header: 'Issued To Org',
-        enableEditing: false, 
+        enableEditing: false,
+        Edit: () => null, 
       },
       {
         accessorKey: 'issuedBy.commonName',
         header: 'Issued By CN',
-        enableEditing: false, 
+        enableEditing: false,
+        Edit: () => null, 
       },
       {
         accessorKey: 'issuedBy.organization',
         header: 'Issued By Org',
-        enableEditing: false, 
+        enableEditing: false,
+        Edit: () => null, 
+        
       },
       {
         accessorKey: 'validFrom',
@@ -82,6 +110,7 @@ const SSLTable = ({ loading, setLoading }) => {
         id: 'timeDuration',
         header: 'Time Duration',
         enableEditing: false,
+        Edit: () => null,
         accessorFn: (row) => {
           const validToDate = new Date(row.validTo);
           const now = new Date();
@@ -91,43 +120,80 @@ const SSLTable = ({ loading, setLoading }) => {
           // If it's already expired or expiring today
           if (diffDays <= 0) {
             return 'Expired';
-          }
-            if (diffDays > 160) {
-              return (
-              <span>
-                {`${diffDays} days`}
-                <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: 'green', borderRadius: '50%', marginLeft: '5px' }}></span>
-              </span>
-              );
-            } else if (diffDays > 120) {
-              return (
-              <span>
-                {`${diffDays} days`}
-                <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: 'oklch(0.795 0.184 86.047)', borderRadius: '50%', marginLeft: '5px' }}></span>
-              </span>
-              );
-            } else if (diffDays > 80) {
-              return (
-              <span>
-                {`${diffDays} days`}
-                <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: 'orange', borderRadius: '50%', marginLeft: '5px' }}></span>
-              </span>
-              );
-            } else if (diffDays > 40) {
-              return (
-              <span>
-                {`${diffDays} days`}
-                <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: 'red', borderRadius: '50%', marginLeft: '5px' }}></span>
-              </span>
-              );
-            } else {
-              return (
-              <span>
-                {`${diffDays} days`}
-                <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: 'darkred', borderRadius: '50%', marginLeft: '5px' }}></span>
-              </span>
-              );
-            }
+        }
+        
+        if (diffDays > 160) {
+            return (
+                <span style={{ 
+                    backgroundColor: 'oklch(0.792 0.209 151.711)', 
+                    color: 'white', 
+                    padding: '4px 20px', 
+                    borderRadius: '20px', 
+                    fontWeight: 'bold',
+                    display: 'inline-flex', 
+                    alignItems: 'center' 
+                }}>
+                    {`${diffDays} days`}
+                </span>
+            );
+        } else if (diffDays > 120) {
+            return (
+                <span style={{ 
+                    backgroundColor: 'oklch(0.795 0.184 86.047)', 
+                    color: 'black', 
+                    padding: '4px 20px', 
+                    borderRadius: '20px', 
+                    fontWeight: 'bold',
+                    display: 'inline-flex', 
+                    alignItems: 'center' 
+                }}>
+                    {`${diffDays} days`}
+                </span>
+            );
+        } else if (diffDays > 80) {
+            return (
+                <span style={{ 
+                    backgroundColor: 'orange', 
+                    color: 'black', 
+                    padding: '4px 20px', 
+                    borderRadius: '20px', 
+                    fontWeight: 'bold',
+                    display: 'inline-flex', 
+                    alignItems: 'center' 
+                }}>
+                    {`${diffDays} days`}
+                </span>
+            );
+        } else if (diffDays > 40) {
+            return (
+                <span style={{ 
+                    backgroundColor: 'red', 
+                    color: 'white', 
+                    padding: '4px 20px', 
+                    borderRadius: '20px', 
+                    fontWeight: 'bold',
+                    display: 'inline-flex', 
+                    alignItems: 'center' 
+                }}>
+                    {`${diffDays} days`}
+                </span>
+            );
+        } else {
+            return (
+                <span style={{ 
+                    backgroundColor: 'darkred', 
+                    color: 'white', 
+                    padding: '4px 20px', 
+                    borderRadius: '20px', 
+                    fontWeight: 'bold',
+                    display: 'inline-flex', 
+                    alignItems: 'center' 
+                }}>
+                    {`${diffDays} days`}
+                </span>
+            );
+        }
+        
         },
         muiTableBodyCellProps: {
           sx: {
@@ -150,6 +216,7 @@ const SSLTable = ({ loading, setLoading }) => {
     {
       id: 'actions',
       header: 'Actions',
+      Edit: () => null,
 
       size: 100,
       enableEditing: false,
@@ -175,7 +242,7 @@ const SSLTable = ({ loading, setLoading }) => {
   );
   
 
-  const { data: sslDetails = [], isLoading } = useGetSSLDetails();
+  // const { data: sslDetails = [], isLoading } = useGetSSLDetails();
 
  
   const handleSaveSSL = async ({ values, table }) => {
@@ -252,11 +319,30 @@ const SSLTable = ({ loading, setLoading }) => {
       <Box sx={{ p: 2,height: '100vh', overflow: 'auto' }}>
 
         <h1 className='font-bold text-2xl text-center mb-1'>SSL Certificate Details Monitoring</h1>
-        
+        {/* 🔍 Search Bar for Global Filtering */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+          <TextField
+            variant="outlined"
+            placeholder="Search..."
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            sx={{ width: '300px' }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Box>
         <MaterialReactTable
           columns={columns}
-          data={sslDetails}
+          data={filteredData}
+          enableGlobalFilter={false} // Disable global search
+          // editingMode="modal"
          
+          
           initialState={{
             columnVisibility: {
               'issuedTo.commonName': false,
@@ -330,7 +416,7 @@ const SSLTable = ({ loading, setLoading }) => {
           }}
         >
           <Typography id="delete-confirmation-title" variant="h6" component="h2">
-            Are you sure you want to delete? {selectedSSL}
+            Are you sure you want to delete? {sslDetails.find(ssl => ssl.sslId === selectedSSL)?.url}
           </Typography>
           <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
             <Button variant="contained" color="error" onClick={confirmDeleteSSL}>
@@ -344,7 +430,6 @@ const SSLTable = ({ loading, setLoading }) => {
       </Modal>
     </div>
     </>
-
   );
 };
 
@@ -370,7 +455,7 @@ const useDeleteSSL = (setLoading) => {
         withCredentials: true,
       });
       await queryClient.invalidateQueries({ queryKey: ['sslDetails'] });
-      toast.success("Deleted successfully!");
+      toast.success("Deleted successfully!", { autoClose: 2000 });
       setLoading(true);
       setTimeout(() => {
         setLoading(false);

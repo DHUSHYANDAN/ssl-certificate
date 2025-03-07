@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import baseUrl from "../URL";
+import { FaSpinner } from "react-icons/fa";
 
 const Home = () => {
     const [url, setUrl] = useState("");
@@ -122,6 +123,7 @@ const Home = () => {
                     disabled={loading}
                 >
                     <span className="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-transparent">
+                    {loading ? <FaSpinner className="animate-spin mr-2 inline" /> : null}
                         {loading ? "Fetching..." : "Fetch SSL Details"}
                     </span>
                 </button>
@@ -160,8 +162,10 @@ const Home = () => {
                     <label className="block text-gray-100 text-sm font-bold mb-2">Enter Manager Email</label>
                     <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-2 border-2 border-gray-300 rounded mb-3" placeholder="Enter Email" />
 
-                    <button onClick={saveManagerDetails} className="relative inline-flex items-center justify-center p-0.5 mb-2 me-2 bg-gradient-to-br from-cyan-500 to-blue-500 hover:text-white focus:ring-4 focus:outline-none focus:ring-cyan-200">
-                        <span className="relative px-5 py-2.5 bg-white rounded-md">{loading ? "Saving..." : "Send Email"}</span>
+                    <button onClick={saveManagerDetails} className="relative inline-flex mt-2 items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-cyan-500 to-blue-500 hover:text-white focus:ring-4 focus:outline-none focus:ring-cyan-200">
+                    <span className="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-transparent">
+                    {loading ? <FaSpinner className="animate-spin mr-2 inline" /> : null}
+                        {loading ? "Saving..." : "Send Email"}</span>
                     </button>
                 </div>
             )}
