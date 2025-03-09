@@ -151,19 +151,18 @@ const getAllSSLDetails = async (req, res) => {
 };
 
 const updateSSLDetails = async (req, res) => {
-  const { url, ...updateData } = req.body;
+  // console.log("Received Data:", req.body);
 
+  const { url, ...updateData } = req.body;
   if (!url) {
     return res.status(400).json({ message: "URL is required" });
   }
-
+  
   try {
-    const updatedSSL = await SSLDetails.findOneAndUpdate({ url: url }, updateData, { new: true });
-
+    const updatedSSL = await SSLDetails.findOneAndUpdate({ url }, updateData, { new: true });
     if (!updatedSSL) {
       return res.status(404).json({ message: "SSL details not found for this URL" });
     }
-
     res.status(200).json({ message: "SSL details updated", data: updatedSSL });
   } catch (error) {
     res.status(500).json({ message: "Error updating SSL details", error: error.message });

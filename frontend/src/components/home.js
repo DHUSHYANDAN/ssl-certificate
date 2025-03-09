@@ -122,7 +122,7 @@ const Home = () => {
                     className="relative inline-flex mt-2 items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-cyan-500 to-blue-500 hover:text-white focus:ring-4 focus:outline-none focus:ring-cyan-200"
                     disabled={loading}
                 >
-                    <span className="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-transparent">
+                    <span className="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white  rounded-md group-hover:bg-transparent">
                     {loading ? <FaSpinner className="animate-spin mr-2 inline" /> : null}
                         {loading ? "Fetching..." : "Fetch SSL Details"}
                     </span>
@@ -163,7 +163,7 @@ const Home = () => {
                     <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-2 border-2 border-gray-300 rounded mb-3" placeholder="Enter Email" />
 
                     <button onClick={saveManagerDetails} className="relative inline-flex mt-2 items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-cyan-500 to-blue-500 hover:text-white focus:ring-4 focus:outline-none focus:ring-cyan-200">
-                    <span className="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-transparent">
+                    <span className="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white  rounded-md group-hover:bg-transparent">
                     {loading ? <FaSpinner className="animate-spin mr-2 inline" /> : null}
                         {loading ? "Saving..." : "Send Email"}</span>
                     </button>

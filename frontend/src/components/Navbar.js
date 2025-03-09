@@ -72,7 +72,7 @@ const Navbars = () => {
     </div>
   </div>
     )}
-    <nav className={`bg-white shadow-md sticky w-full z-10 top-0 border-b border-gray-200 ${user ? 'bg-cover bg-center' : ''}`} style={user ? { backgroundImage: "url('./landingpage2.png')" } : {}}>
+    <nav className={`bg-white shadow-md sticky w-full z-20 top-0 border-b border-gray-200 ${user ? 'bg-cover bg-center' : ''}`} style={user ? { backgroundImage: "url('./landingpage2.png')" } : {}}>
       <ToastContainer position="top-right" autoClose={3000} />
       <div className="mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20 items-center">
