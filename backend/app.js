@@ -2,7 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const path = require("path");
-const urlRoutes = require("./routes/route");
+const urlRoutes = require("./routes/SSLroute");
+const userRoutes = require("./routes/userLogin");
 require("dotenv").config();
 const cookieParser = require("cookie-parser");
 
@@ -34,7 +35,7 @@ mongoose
   
 
 // Routes
-app.use("/", urlRoutes);
+app.use("/", urlRoutes, userRoutes);
 
 
 // Serve React Frontend
