@@ -61,7 +61,11 @@ const Home = () => {
             setCertificate(data.data);
             toast.success(data.message || "SSL data retrieved!", { autoClose: 2000 });
         } catch (error) {
-            toast.error(error.message, { autoClose: 2000 });
+            if (error.message === "Socketerror") {
+                toast.error("website is not reachable");
+            } else {
+                toast.error(error.message);
+            }
         }
         setLoading(false);
     };

@@ -9,6 +9,7 @@ const EmailScheduleSchema = new mongoose.Schema({
     unique: true
   },
   nextEmailDates: {
+     Normal: { type: Date },
     thirtyDays: { type: Date },
     fifteenDays: { type: Date },
     tenDays: { type: Date },
@@ -16,6 +17,7 @@ const EmailScheduleSchema = new mongoose.Schema({
     daily: { type: Date }
   },
   emailsSent: {
+    Normal: { type: Boolean, default: false },
     thirtyDays: { type: Boolean, default: false },
     fifteenDays: { type: Boolean, default: false },
     tenDays: { type: Boolean, default: false },

@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { MaterialReactTable } from "material-react-table";
+
+import { FaEye } from 'react-icons/fa';
 import {
   Box,
   IconButton,
@@ -7,6 +9,7 @@ import {
   Modal,
   Button,
   Typography,
+  Divider, Grid
 } from "@mui/material";
 import {
   QueryClient,
@@ -211,6 +214,7 @@ const SSLTable = ({ loading, setLoading }) => {
         muiTableBodyCellProps: {
           sx: {
             textAlign: "center",
+            // border: "1px solid lightgray",
           },
         },
       },
@@ -235,6 +239,14 @@ const SSLTable = ({ loading, setLoading }) => {
         enableEditing: false,
         Cell: ({ row, table }) => (
           <Box sx={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
+            <Tooltip title="View">
+                  <IconButton >
+                  <FaEye className="text-sky-500" onClick={() => {
+                    setSelectedSSL(row.original);
+                    setShowDetailsModal(true);
+                  } } />
+                  </IconButton>
+                </Tooltip>
              <Tooltip title="Edit">
           <IconButton >
             <EditIcon onClick={() => openEditModal(row.original)} />
@@ -258,6 +270,8 @@ const SSLTable = ({ loading, setLoading }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editSSL, setEditSSL] = useState(null);
 
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  
   const [selectedSSL, setSelectedSSL] = useState(null);
 
   const openEditModal = (sslData) => {
@@ -388,8 +402,18 @@ const SSLTable = ({ loading, setLoading }) => {
                 columns={columns}
                 data={filteredData}
                 enableGlobalFilter={false}
-            // onEditingRowSave={handleSaveSSL}
-
+                getRowId={(row) => row.sslId}
+                muiTableBodyRowProps={({ row }) => ({
+                 
+                  sx: {
+                    cursor: "pointer",
+                    backgroundColor: row.index % 2 ? "" : "#ffffff",
+                    "&:hover": {
+                      backgroundColor: "oklch(0.951 0.046 236.824)",
+                    },
+                  },
+                 
+                })}
             initialState={{
               columnVisibility: {
                 "issuedTo.commonName": false,
@@ -417,30 +441,121 @@ const SSLTable = ({ loading, setLoading }) => {
             muiTableHeadCellProps={{
               sx: {
                 backgroundColor: "oklch(0.828 0.111 230.318)",
+                // backgroundImage: "url('./landingpage2.png')",
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+             
                 color: "black",
                 fontWeight: "bold",
                 fontSize: "1rem",
-                border: "1px solid lightgray",
+                border: "0.5px solid lightgray",
               },
             }}
             // Row styling: alternate row colors and hover effect
-            muiTableBodyRowProps={({ row }) => ({
-              sx: {
-                backgroundColor:
-                  row.index % 2 ? "oklch(0.951 0.026 236.824)" : "#ffffff",
-                "&:hover": {
-                  backgroundColor: "lightyellow",
-                },
-              },
-            })}
+           
             muiTableBodyCellProps={{
               sx: {
                 padding: "8px",
-                border: "1px solid lightgray",
+                // border: "0.1px solid lightgray",
               },
             }}
           />
         </Box>
+
+
+
+        {/* // JSX for Details Modal */}
+        <Modal open={showDetailsModal} onClose={() => setShowDetailsModal(false)}>
+      <Box className="bg-white p-4 w-5/6"
+        sx={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+         
+          maxWidth: 900,
+          maxHeight: "90vh",
+          bgcolor: "white",
+          boxShadow: 24,
+          p: 4,
+          borderRadius: "12px",
+          overflowY: "auto",
+        }}
+      >
+        <Typography variant="h5" fontWeight="bold" gutterBottom>
+          SSL Certificate Details
+        </Typography>
+
+        {selectedSSL && (
+          <Box sx={{ mt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Typography><strong>🔗 URL:</strong> {selectedSSL.url}</Typography>
+                <Typography><strong>📆 Days Remaining:</strong> {selectedSSL.daysRemaining}</Typography>
+              </Grid>
+            </Grid>
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Email Logs Section */}
+            <Typography variant="h6" fontWeight="bold">📩 Email Logs</Typography>
+            {selectedSSL?.emailLogs?.length > 0 ? (
+              selectedSSL.emailLogs.map((log, index) => (
+                <Box key={index} sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#f5f5f5", borderRadius: "8px" }}>
+                  <Typography><strong>Type:</strong> {log.emailType}</Typography>
+                  <Typography><strong>Recipient:</strong> {log.recipient}</Typography>
+                  <Typography><strong>Subject:</strong> {log.subject}</Typography>
+                  <Typography><strong>Status:</strong> {log.status}</Typography>
+                  <Typography><strong>Sent At:</strong> {new Date(log.sentAt).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+                </Box>
+              ))
+            ) : (
+              <Typography sx={{ ml: 2, color: "gray" }}>No email logs available</Typography>
+            )}
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Email Schedule Section */}
+            <Typography variant="h6" fontWeight="bold">📅 Email Schedule</Typography>
+            {selectedSSL?.emailSchedule ? (
+              <Box sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#e3f2fd", borderRadius: "8px" }}>
+                <Typography><strong>Next 30 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.thirtyDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+                <Typography><strong>Next 15 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fifteenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+                <Typography><strong>Next 10 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.tenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+                <Typography><strong>Next 5 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fiveDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+              </Box>
+            ) : (
+              <Typography sx={{ ml: 2, color: "gray" }}>No email schedule available.</Typography>
+            )}
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Notification Status Section */}
+            <Typography variant="h6" fontWeight="bold">🔔 Notification Status</Typography>
+            <Box sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#f3e5f5", borderRadius: "8px" }}>
+                         <Typography><strong>Normal Email Sent:</strong>   {selectedSSL?.notificationStatus?.NormalSent ? "✅ Yes" : "❌ No"}</Typography>
+              <Typography><strong>30 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.thirtyDaysSent ? "✅ Yes" : "❌ No"}</Typography>
+              <Typography><strong>15 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.fifteenDaysSent ? "✅ Yes" : "❌ No"}</Typography>
+              <Typography><strong>10 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.tenDaysSent ? "✅ Yes" : "❌ No"}</Typography>
+              <Typography><strong>5 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.fiveDaysSent ? "✅ Yes" : "❌ No"}</Typography>
+              <Typography><strong>📧 Daily Email Count:</strong> {selectedSSL?.notificationStatus?.dailyEmailCount || 0}</Typography>
+            </Box>
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Optional Fields */}
+            {selectedSSL?.siteManager && <Typography><strong>👤 Site Manager:</strong> {selectedSSL.siteManager}</Typography>}
+            {selectedSSL?.email && <Typography><strong>📩 Email:</strong> {selectedSSL.email}</Typography>}
+          </Box>
+        )}
+
+        <Button onClick={() => setShowDetailsModal(false)} variant="contained" color="primary" sx={{ mt: 3, width: "100%" }}>
+          Close
+        </Button>
+      </Box>
+    </Modal>
+
+
         {/* // JSX for Edit Modal */}
        
         <Modal
@@ -598,26 +713,42 @@ const useGetSSLDetails = () =>
 // Delete SSL Entry with Toast Notification using a custom hook
 const useDeleteSSL = (setLoading) => {
   const queryClient = useQueryClient();
+
   return async (sslId) => {
-    if (!sslId) throw new Error("SSL ID is required");
+    if (!sslId) {
+      toast.error("SSL ID is required!");
+      throw new Error("SSL ID is required");
+    }
+
+    setLoading(true);
     try {
-      await axios.delete(`${baseUrl}/ssl-delete`, {
+      const response = await axios.delete(`${baseUrl}/ssl-delete`, {
         data: { sslId },
         withCredentials: true,
       });
-      await queryClient.invalidateQueries({ queryKey: ["sslDetails"] });
-      toast.success("Deleted successfully!", { autoClose: 2000 });
-      setLoading(true);
+
+      if (response.status === 200) {
+        toast.success("Deleted successfully!", { autoClose: 2000 });
+        await queryClient.invalidateQueries({ queryKey: ["sslDetails"] });
+      }
+    } catch (error) {
+      console.log("Failed to delete SSL:", error,sslId);
+      
+      console.error("Failed to delete SSL:", error?.response?.data?.message || error.message);
+      
+      // Show user-friendly error messages
+      const errorMessage =
+        error?.response?.data?.message || "Something went wrong while deleting SSL.";
+      
+      toast.error(errorMessage);
+    } finally {
       setTimeout(() => {
         setLoading(false);
       }, 2000);
-    } catch (error) {
-      setLoading(false);
-      console.error("Failed to delete SSL:", error.message);
-      toast.error(`Failed to delete SSL: ${error.message}`);
     }
   };
 };
+
 
 // Query Client Provider
 const queryClient = new QueryClient();

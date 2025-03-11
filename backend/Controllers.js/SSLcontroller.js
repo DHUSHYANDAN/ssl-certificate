@@ -82,6 +82,7 @@ const checkAndFetchSSL = async (req, res) => {
             const emailSchedule = new EmailSchedule({
               sslId: newSSLId,
               nextEmailDates: {
+                Normal: new Date(validTo.getTime() - (30 * 24 * 60 * 60 * 1000)),
                 thirtyDays: new Date(validTo.getTime() - (30 * 24 * 60 * 60 * 1000)),
                 fifteenDays: new Date(validTo.getTime() - (15 * 24 * 60 * 60 * 1000)),
                 tenDays: new Date(validTo.getTime() - (10 * 24 * 60 * 60 * 1000)),
@@ -110,7 +111,7 @@ const checkAndFetchSSL = async (req, res) => {
 
     socket.on("error", (err) => {
       console.error("Socket connection error:", err.message);
-      return res.status(500).json({ message: "Socket error", error: err.message });
+      return res.status(500).json({ message: "Socketerror", error: err.message });
     });
   } catch (error) {
     res.status(500).json({ message: "Internal server error", error: error.message });
@@ -142,12 +143,14 @@ const storeManagerAndSendMail = async (req, res) => {
       emailSchedule = new EmailSchedule({
         sslId: sslData.sslId,
         nextEmailDates: {
+         Normal: new Date(validTo.getTime() - (30 * 24 * 60 * 60 * 1000)),
           thirtyDays: new Date(validTo.getTime() - (30 * 24 * 60 * 60 * 1000)),
           fifteenDays: new Date(validTo.getTime() - (15 * 24 * 60 * 60 * 1000)),
           tenDays: new Date(validTo.getTime() - (10 * 24 * 60 * 60 * 1000)),
           fiveDays: new Date(validTo.getTime() - (5 * 24 * 60 * 60 * 1000)),
           daily: new Date(validTo.getTime() - (5 * 24 * 60 * 60 * 1000))
         },
+        emailsSent: { Normal: false },
         ssl: sslData._id
       });
       
@@ -159,7 +162,12 @@ const storeManagerAndSendMail = async (req, res) => {
     }
 
     // Send email notification
-    await sendEmailToManager(sslData);
+ await sendEmailToManager(sslData);
+    
+      
+        // ✅ Force database update to avoid Mongoose tracking issues
+    
+      
 
     res.status(200).json({ message: "Manager info saved and email sent", data: sslData });
   } catch (error) {
@@ -182,14 +190,16 @@ const sendEmailToManager = async (sslData) => {
     to: sslData.email,
     subject: `SSL Certificate Details for ${sslData.url}`,
     html: `
-        <h3>SSL Certificate Details</h3>
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px;">
+        <h2 style="color: #4CAF50;">🔒 SSL Certificate Details</h2>
         <p><strong>Site:</strong> ${sslData.url}</p>
         <p><strong>Issued To:</strong> ${sslData.issuedTo.commonName} (${sslData.issuedTo.organization})</p>
         <p><strong>Issued By:</strong> ${sslData.issuedBy.commonName} (${sslData.issuedBy.organization})</p>
         <p><strong>Valid From:</strong> ${sslData.validFrom}</p>
         <p><strong>Valid To:</strong> ${sslData.validTo}</p>
         <p><strong>Site Manager:</strong> ${sslData.siteManager}</p>
-      `,
+      </div>
+    `,
   };
 
   try {
@@ -199,7 +209,7 @@ const sendEmailToManager = async (sslData) => {
     // Log this email in EmailSendLog
     const emailLog = new EmailSendLog({
       sslId: sslData.sslId,
-      emailType: "30days", // This is an initial notification
+      emailType: "Normal", // This is an initial notification
       recipient: sslData.email,
       subject: mailOptions.subject,
       status: "success",
@@ -215,7 +225,13 @@ const sendEmailToManager = async (sslData) => {
     
     sslData.emailLogs.push(emailLog._id);
     await sslData.save();
-    
+  
+    // ✅ **Update the emailsSent.Normal field to true**
+    const emailSchedule = await EmailSchedule.findOne({ sslId: sslData.sslId });
+    if (emailSchedule) {
+      emailSchedule.emailsSent.Normal = true;
+      await emailSchedule.save();
+    }
     return true;
   } catch (error) {
     console.error("Error sending email:", error);
@@ -223,7 +239,7 @@ const sendEmailToManager = async (sslData) => {
     // Log the failed email attempt
     const emailLog = new EmailSendLog({
       sslId: sslData.sslId,
-      emailType: "30days", // This is an initial notification
+      emailType: "Normal", // This is an initial notification
       recipient: sslData.email,
       subject: mailOptions.subject,
       status: "failed",
@@ -261,6 +277,7 @@ const getAllSSLDetails = async (req, res) => {
       
       // Determine notification status
       const notificationStatus = {
+       NormalSent: ssl.emailSchedule?.emailsSent?.Normal || false,
         thirtyDaysSent: ssl.emailSchedule?.emailsSent?.thirtyDays || false,
         fifteenDaysSent: ssl.emailSchedule?.emailsSent?.fifteenDays || false,
         tenDaysSent: ssl.emailSchedule?.emailsSent?.tenDays || false,
@@ -304,6 +321,7 @@ const updateSSLDetails = async (req, res) => {
         
         // Update notification dates
         emailSchedule.nextEmailDates = {
+          Normal: new Date(validTo.getTime() - (30 * 24 * 60 * 60 * 1000)),
           thirtyDays: new Date(validTo.getTime() - (30 * 24 * 60 * 60 * 1000)),
           fifteenDays: new Date(validTo.getTime() - (15 * 24 * 60 * 60 * 1000)),
           tenDays: new Date(validTo.getTime() - (10 * 24 * 60 * 60 * 1000)),
@@ -313,6 +331,7 @@ const updateSSLDetails = async (req, res) => {
         
         // Reset notification status since certificate has been renewed
         emailSchedule.emailsSent = {
+          Normal: false,
           thirtyDays: false,
           fifteenDays: false,
           tenDays: false,
@@ -338,31 +357,43 @@ const deleteSSLDetails = async (req, res) => {
   }
 
   try {
-    // Find the SSL record to get the related IDs
-    const sslRecord = await SSLDetails.findOne({ sslId: sslId });
-    
+    // Find the SSL record
+    const sslRecord = await SSLDetails.findOne({ sslId });
+
     if (!sslRecord) {
       return res.status(404).json({ message: "SSL details not found for this SSL ID" });
     }
-    
-    // Delete related email logs
-    if (sslRecord.emailLogs && sslRecord.emailLogs.length > 0) {
-      await EmailSendLog.deleteMany({ _id: { $in: sslRecord.emailLogs } });
+
+    // Try deleting related email logs
+    try {
+      if (sslRecord.emailLogs && sslRecord.emailLogs.length > 0) {
+        await EmailSendLog.deleteMany({ _id: { $in: sslRecord.emailLogs } });
+      }
+    } catch (err) {
+      console.error("Error deleting email logs:", err.message);
+      return res.status(500).json({ message: "Failed to delete email logs", error: err.message });
     }
-    
-    // Delete related email schedule
-    if (sslRecord.emailSchedule) {
-      await EmailSchedule.findByIdAndDelete(sslRecord.emailSchedule);
+
+    // Try deleting the email schedule
+    try {
+      if (sslRecord.emailSchedule) {
+        await EmailSchedule.findByIdAndDelete(sslRecord.emailSchedule);
+      }
+    } catch (err) {
+      console.error("Error deleting email schedule:", err.message);
+      return res.status(500).json({ message: "Failed to delete email schedule", error: err.message });
     }
-    
-    // Delete the SSL record
-    const deletedSSL = await SSLDetails.findOneAndDelete({ sslId: sslId });
-    
-    res.status(200).json({ message: "SSL details and related records deleted", data: deletedSSL });
+
+    // Delete SSL record
+    const deletedSSL = await SSLDetails.findOneAndDelete({ sslId });
+
+    res.status(200).json({ message: "SSL details and related records deleted successfully", data: deletedSSL });
   } catch (error) {
-    res.status(500).json({ message: "Error deleting SSL details", error: error.message });
+    console.error("Server Error:", error.message);
+    res.status(500).json({ message: "An error occurred while deleting SSL details", error: error.message });
   }
 };
+
 
 // Function to send expiry alerts
 const sendExpiryAlert = async () => {
@@ -419,7 +450,7 @@ const sendExpiryAlert = async () => {
         }
         
         // If we're in the last 5 days, send daily emails
-        if (daysLeft <= 8 && daysLeft > 0) {
+        if (daysLeft <= 5 && daysLeft > 0) {
           await sendEmailAlert(ssl, daysLeft, "daily");
           schedule.emailsSent.dailySentCount += 1;
         }
@@ -608,6 +639,8 @@ const updateCronSchedule = async (req, res) => {
 
 // Function to dynamically schedule cron job
 const scheduleCronJob = async () => {
+ 
+
   try {
     if (cronJob) {
       console.log("Stopping previous cron job...");
@@ -628,10 +661,62 @@ const scheduleCronJob = async () => {
       console.error(`Invalid cron schedule: ${cronSchedule}. Using default "0 6 * * *".`);
       cronSchedule = "0 6 * * *";
     }
+    cronJob = cron.schedule(cronSchedule, async () => {
+          console.log(`Fetching all stored SSL details from the websites...`);
 
+          const sslDetails = await SSLDetails.find();
+
+          for (const ssl of sslDetails) {
+            const parsedUrl = new URL(ssl.url);
+            const host = parsedUrl.hostname;
+
+            const socket = net.connect(443, host, () => {
+            const secureSocket = tls.connect(
+              { socket, servername: host, rejectUnauthorized: false },
+              async () => {
+              const certificate = secureSocket.getPeerCertificate();
+              if (!certificate || Object.keys(certificate).length === 0) {
+                console.error(`No SSL certificate found for ${ssl.url}`);
+                return;
+              }
+
+              const validFrom = new Date(certificate.valid_from);
+              const validTo = new Date(certificate.valid_to);
+
+              const sslData = {
+                issuedTo: {
+                commonName: certificate.subject?.CN || "Unknown",
+                organization: certificate.subject?.O || "Unknown",
+                },
+                issuedBy: {
+                commonName: certificate.issuer?.CN || "Unknown",
+                organization: certificate.issuer?.O || "Unknown",
+                },
+                validFrom,
+                validTo,
+              };
+
+              await SSLDetails.findOneAndUpdate(
+                { url: ssl.url },
+                sslData,
+                { new: true, upsert: true }
+              );
+
+              console.log(`Updated SSL details for ${ssl.url}`);
+
+              secureSocket.end();
+              socket.end();
+              }
+            );
+
+            secureSocket.on("error", (err) => console.error(`TLS error for ${ssl.url}:`, err.message));
+            });
+
+            socket.on("error", (err) => console.error(`Socket connection error for ${ssl.url}:`, err.message));
+          }
     console.log(`🔄 Scheduling SSL expiry check with cron time: ${cronSchedule}`);
 
-    cronJob = cron.schedule(cronSchedule, async () => {
+   
       console.log("🚀 Running SSL expiry check...");
 
       try {
@@ -672,6 +757,9 @@ const scheduleCronJob = async () => {
       } catch (error) {
         console.error("Error during SSL expiry check:", error);
       }
+    }, {
+      scheduled: true,
+      timezone: "Asia/Kolkata"  // Force the correct timezone
     });
 
     cronJob.start();
@@ -679,6 +767,7 @@ const scheduleCronJob = async () => {
     console.error("Error scheduling cron job:", error);
   }
 };
+
 
 
 // Get details for a single SSL certificate including notification history
@@ -706,6 +795,7 @@ const getSSLDetail = async (req, res) => {
     
     // Get notification status
     const notificationStatus = {
+      NormalSent: ssl.emailSchedule?.emailsSent.Normal || false,
       thirtyDaysSent: ssl.emailSchedule?.emailsSent.thirtyDays || false,
       fifteenDaysSent: ssl.emailSchedule?.emailsSent.fifteenDays || false,
       tenDaysSent: ssl.emailSchedule?.emailsSent.tenDays || false,

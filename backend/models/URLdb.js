@@ -21,11 +21,11 @@ const UrlSchema = new mongoose.Schema({
     organization: { type: String, required: true },
   },
   validFrom: { 
-    type: Date, // Changed to Date type for better functionality
+    type: Date, 
     required: true 
   },
   validTo: { 
-    type: Date, // Changed to Date type for better functionality
+    type: Date, 
     required: true 
   },
   siteManager: { 

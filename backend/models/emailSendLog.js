@@ -10,7 +10,7 @@ const EmailSendLogSchema = new mongoose.Schema({
   emailType: {
     type: String,
     required: true,
-    enum: ["30days", "15days", "10days", "5days", "daily"]
+    enum: ["Normal","30days", "15days", "10days", "5days", "daily"]
   },
   recipient: {
     type: String,
