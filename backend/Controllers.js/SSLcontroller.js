@@ -744,7 +744,7 @@ const scheduleCronJob = async () => {
               await sendEmailAlert(ssl, daysRemaining, "5days");
               emailSchedule.emailsSent.fiveDays = true;
             }
-            if (daysRemaining <= 5) {
+            if (daysRemaining <= 8) {
               await sendEmailAlert(ssl, daysRemaining, "daily");
               emailSchedule.emailsSent.dailySentCount += 1;
             }
@@ -771,51 +771,58 @@ const scheduleCronJob = async () => {
 
 
 // Get details for a single SSL certificate including notification history
-const getSSLDetail = async (req, res) => {
-  const { sslId } = req.params;
+// const getSSLDetail = async (req, res) => {
+//   const { sslId } = req.params;
   
-  if (!sslId) {
-    return res.status(400).json({ message: "SSL ID is required" });
-  }
+//   if (!sslId) {
+//     return res.status(400).json({ message: "SSL ID is required" });
+//   }
   
-  try {
-    const ssl = await SSLDetails.findOne({ sslId })
-      .populate('emailSchedule')
-      .populate({
-        path: 'emailLogs',
-        options: { sort: { 'sentAt': -1 } }
-      });
+//   try {
+//     const ssl = await SSLDetails.findOne({ sslId })
+//       .populate('emailSchedule')
+//       .populate({
+//         path: 'emailLogs',
+//         options: { sort: { 'sentAt': -1 } }
+//       });
     
-    if (!ssl) {
-      return res.status(404).json({ message: "SSL certificate not found" });
-    }
+//     if (!ssl) {
+//       return res.status(404).json({ message: "SSL certificate not found" });
+//     }
     
-    // Calculate days remaining
-    const daysRemaining = ssl.daysUntilExpiration();
+//     // Calculate days remaining
+//     const daysRemaining = ssl.daysUntilExpiration();
     
-    // Get notification status
-    const notificationStatus = {
-      NormalSent: ssl.emailSchedule?.emailsSent.Normal || false,
-      thirtyDaysSent: ssl.emailSchedule?.emailsSent.thirtyDays || false,
-      fifteenDaysSent: ssl.emailSchedule?.emailsSent.fifteenDays || false,
-      tenDaysSent: ssl.emailSchedule?.emailsSent.tenDays || false,
-      fiveDaysSent: ssl.emailSchedule?.emailsSent.fiveDays || false,
-      dailyEmailCount: ssl.emailSchedule?.emailsSent.dailySentCount || 0
-    };
-    
-    res.status(200).json({
-      message: "SSL details retrieved",
-      data: {
-        sslDetails: ssl,
-        daysRemaining,
-        notificationStatus,
-        emailHistory: ssl.emailLogs
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Error retrieving SSL details", error: error.message });
-  }
-};
+//     // Get notification status
+//     const notificationStatus = {
+//       NormalSent: ssl.emailSchedule?.emailsSent.Normal || false,
+//       thirtyDaysSent: ssl.emailSchedule?.emailsSent.thirtyDays || false,
+//       fifteenDaysSent: ssl.emailSchedule?.emailsSent.fifteenDays || false,
+//       tenDaysSent: ssl.emailSchedule?.emailsSent.tenDays || false,
+//       fiveDaysSent: ssl.emailSchedule?.emailsSent.fiveDays || false,
+//       dailyEmailCount: ssl.emailSchedule?.emailsSent.dailySentCount || 0
+//     };
+//     // Organize email logs by emailType
+//     const emailSentDates = {};
+//     ssl.emailLogs.forEach(log => {
+//       if (!emailSentDates[log.emailType]) {
+//         emailSentDates[log.emailType] = log.sentAt;
+//       }
+//     });
+//     res.status(200).json({
+//       message: "SSL details retrieved",
+//       data: {
+//         sslDetails: ssl,
+//         daysRemaining,
+//         notificationStatus,
+//         emailHistory: ssl.emailLogs,
+//         emailSentDates
+//       }
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Error retrieving SSL details", error: error.message });
+//   }
+// };
 
 // Run cron job on startup
 scheduleCronJob();
@@ -828,5 +835,5 @@ module.exports = {
   deleteSSLDetails,
   updateCronSchedule,
   getCronSchedule,
-  getSSLDetail
+  // getSSLDetail
 };

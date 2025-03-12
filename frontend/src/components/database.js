@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { MaterialReactTable } from "material-react-table";
-
+import { FaSpinner } from "react-icons/fa";
 import { FaEye } from 'react-icons/fa';
 import {
   Box,
@@ -36,16 +36,90 @@ const SSLTable = ({ loading, setLoading }) => {
   // 📌 Custom Global Filter Function
   const filteredData = useMemo(() => {
     if (!globalFilter) return sslDetails;
-
+  
     const lowerCaseFilter = globalFilter.toLowerCase();
-
-    return sslDetails.filter((row) =>
-      Object.values(row).some(
-        (value) =>
-          value && String(value).toLowerCase().includes(lowerCaseFilter)
-      )
-    );
+  
+    return sslDetails.filter((row) => {
+      return Object.values(row).some((value) => {
+        if (!value) return false;
+  
+        // Convert value to a string for general text search
+        const stringValue = String(value).toLowerCase();
+        if (stringValue.includes(lowerCaseFilter)) return true;
+  
+        // Convert numeric values (e.g., daysRemaining) to check
+        if (typeof value === "number" && value.toString().includes(globalFilter)) {
+          return true;
+        }
+  
+        // Check date values (validFrom, validTo)
+        if (row.validFrom || row.validTo) {
+          const validFrom = new Date(row.validFrom).toLocaleDateString("en-IN");
+          const validTo = new Date(row.validTo).toLocaleDateString("en-IN");
+  
+          return validFrom.includes(globalFilter) || validTo.includes(globalFilter);
+        }
+  
+        return false;
+      });
+    });
   }, [globalFilter, sslDetails]);
+  
+
+  const validateManagerName = (siteManager) => {
+    return /^[a-zA-Z\s]*$/.test(siteManager);
+  }
+
+  const validateEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+  const formatUrlToHttps = (value) => {
+    try {
+      let parsedUrl = new URL(value);
+      parsedUrl.protocol = "https:";
+      return parsedUrl.origin;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const saveManagerDetails = async (editSSL) => {
+    if (!editSSL?.siteManager || !editSSL?.email) {
+      return toast.error("Please fill in all fields", { autoClose: 2000 });
+
+    }
+    if (!validateManagerName(editSSL.siteManager)) {
+      return toast.error("Name contains only alphabets", { autoClose: 2000 });
+    }
+    if (!validateEmail(editSSL.email)) {
+      return toast.error("Enter a valid email address", { autoClose: 2000 });
+    }
+
+    setLoading(true);
+    let formattedUrl = formatUrlToHttps(editSSL.url); // Ensure it's the URL, not siteManager
+    if (!formattedUrl) {
+      setLoading(false);
+      return toast.error("Invalid URL format", { autoClose: 2000 });
+    }
+
+    try {
+      const response = await fetch(`${baseUrl}/mail-to-sitemanager`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: formattedUrl, siteManager: editSSL.siteManager, email: editSSL.email }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to save manager details");
+
+      toast.success(data.message, { autoClose: 2000 });
+    } catch (error) {
+      toast.error(error.message, { autoClose: 2000 });
+    }
+    setLoading(false);
+  };
+
   const columns = useMemo(
     () => [
       {
@@ -53,12 +127,17 @@ const SSLTable = ({ loading, setLoading }) => {
         header: "S.No",
         size: 50,
         enableEditing: false,
+        enableSorting: false,
+        enableColumnFilter: false,
+ 
         Edit: () => null,
         Cell: ({ row }) => row.index + 1,
 
         muiTableBodyCellProps: {
           sx: {
             textAlign: "center",
+
+
           },
         },
       },
@@ -96,128 +175,84 @@ const SSLTable = ({ loading, setLoading }) => {
         accessorKey: "validFrom",
         header: "Valid From",
         enableEditing: false,
+        enableSorting: false,
         accessorFn: (row) => {
-          const gmtDate = new Date(row.validFrom);
-          const istDate = new Date(gmtDate.getTime() + 5.5 * 60 * 60 * 1000);
-          return istDate.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-        },
+          const validFrom = row?.validFrom;
+          if (!validFrom) return "N/A";
+
+          // Convert UTC to IST manually
+          const utcDate = new Date(validFrom);
+          const istDate = new Date(utcDate.getTime() + (0 * 60 * 60 * 1000)); // Add 5:30 hours
+
+          // Format IST date
+          return istDate.toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true
+          });
+        }
       },
+
       {
         accessorKey: "validTo",
         header: "Valid To",
         enableEditing: false,
+        enableSorting: false,
         accessorFn: (row) => {
           const gmtDate = new Date(row.validTo);
-          const istDate = new Date(gmtDate.getTime() + 5.5 * 60 * 60 * 1000);
+          const istDate = new Date(gmtDate.getTime() + 0 * 60 * 60 * 1000);
           return istDate.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
         },
       },
 
+
+
       {
-        id: "timeDuration",
-        header: "Time Duration",
+        accessorKey: "daysRemaining",
+        header: "Validity", // Shortened header
         enableEditing: false,
-        Edit: () => null,
-        accessorFn: (row) => {
-          const validToDate = new Date(row.validTo);
-          const now = new Date();
-          const diffMs = validToDate - now;
-          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        Cell: ({ cell }) => {
+          const diffDays = cell.getValue(); // Get daysRemaining value
 
-          // If it's already expired or expiring today
           if (diffDays <= 0) {
-            return "Expired";
+            return <strong style={{ color: "red" }}>Expired</strong>;
           }
 
-          if (diffDays > 160) {
-            return (
-              <span
-                style={{
-                  backgroundColor: "oklch(0.792 0.209 151.711)",
-                  color: "white",
-                  padding: "4px 20px",
-                  borderRadius: "20px",
-                  fontWeight: "bold",
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-              >
-                {`${diffDays} days`}
-              </span>
-            );
-          } else if (diffDays > 120) {
-            return (
-              <span
-                style={{
-                  backgroundColor: "oklch(0.795 0.184 86.047)",
-                  color: "black",
-                  padding: "4px 20px",
-                  borderRadius: "20px",
-                  fontWeight: "bold",
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-              >
-                {`${diffDays} days`}
-              </span>
-            );
-          } else if (diffDays > 80) {
-            return (
-              <span
-                style={{
-                  backgroundColor: "orange",
-                  color: "black",
-                  padding: "4px 20px",
-                  borderRadius: "20px",
-                  fontWeight: "bold",
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-              >
-                {`${diffDays} days`}
-              </span>
-            );
-          } else if (diffDays > 40) {
-            return (
-              <span
-                style={{
-                  backgroundColor: "red",
-                  color: "white",
-                  padding: "4px 20px",
-                  borderRadius: "20px",
-                  fontWeight: "bold",
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-              >
-                {`${diffDays} days`}
-              </span>
-            );
-          } else {
-            return (
-              <span
-                style={{
-                  backgroundColor: "darkred",
-                  color: "white",
-                  padding: "4px 20px",
-                  borderRadius: "20px",
-                  fontWeight: "bold",
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-              >
-                {`${diffDays} days`}
-              </span>
-            );
-          }
+          // Function to determine the background color
+          const getColorStyle = (days) => {
+            if (days > 160) return { backgroundColor: "#008000", color: "white" }; // Green
+            if (days > 120) return { backgroundColor: "#90EE90", color: "black" }; // Light Green
+            if (days > 80) return { backgroundColor: "orange", color: "black" }; // Orange
+            if (days > 40) return { backgroundColor: "red", color: "white" }; // Red
+            return { backgroundColor: "darkred", color: "white" }; // Dark Red
+          };
+
+          return (
+            <span
+              style={{
+                ...getColorStyle(diffDays),
+                padding: "4px 20px",
+                borderRadius: "20px",
+                fontWeight: "bold",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              {`${diffDays} days`}
+            </span>
+          );
         },
         muiTableBodyCellProps: {
           sx: {
             textAlign: "center",
-            // border: "1px solid lightgray",
           },
         },
       },
+
       {
         accessorKey: "siteManager",
         header: "Site Manager",
@@ -240,18 +275,18 @@ const SSLTable = ({ loading, setLoading }) => {
         Cell: ({ row, table }) => (
           <Box sx={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
             <Tooltip title="View">
-                  <IconButton >
-                  <FaEye className="text-sky-500" onClick={() => {
-                    setSelectedSSL(row.original);
-                    setShowDetailsModal(true);
-                  } } />
-                  </IconButton>
-                </Tooltip>
-             <Tooltip title="Edit">
-          <IconButton >
-            <EditIcon onClick={() => openEditModal(row.original)} />
-          </IconButton>
-        </Tooltip>
+              <IconButton >
+                <FaEye className="text-sky-500" onClick={() => {
+                  setSelectedSSL(row.original);
+                  setShowDetailsModal(true);
+                }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Edit">
+              <IconButton onClick={() => openEditModal(row.original)}>
+                <EditIcon  />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Delete">
               <IconButton
                 color="error"
@@ -271,7 +306,7 @@ const SSLTable = ({ loading, setLoading }) => {
   const [editSSL, setEditSSL] = useState(null);
 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  
+
   const [selectedSSL, setSelectedSSL] = useState(null);
 
   const openEditModal = (sslData) => {
@@ -281,11 +316,11 @@ const SSLTable = ({ loading, setLoading }) => {
   const updateSSL = async () => {
     try {
       const { url, siteManager, email } = editSSL;
-      if (!siteManager)  {
+      if (!siteManager) {
         toast.error("Please fill the SiteManager Name");
         return;
       }
-      else if(!/^[a-zA-Z\s]*$/.test(siteManager)){
+      else if (!/^[a-zA-Z\s]*$/.test(siteManager)) {
         toast.error("name contains only alphabets");
         return;
       }
@@ -374,46 +409,46 @@ const SSLTable = ({ loading, setLoading }) => {
           <h1 className="font-bold text-2xl text-center mb-1">
             SSL Certificate Details Monitoring
           </h1>
-          {/* /* 🔍 Search Bar for Global Filtering */} 
-                <Box sx={{ mb: 2 }} className="absolute right-40 z-10 mr-10 mt-2">
-                <TextField
-                  variant="outlined"
-                  placeholder="Search..."
-                  value={globalFilter}
-                  onChange={(e) => setGlobalFilter(e.target.value)}
-                  sx={{
-                    width: "100%",
-                    "& .MuiOutlinedInput-root": {
-                      height: "40px", 
-                    },
-                    
-                  }}
-                  InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                    <SearchIcon />
-                    </InputAdornment>
-                  ),
-                  }}
-                />
-                </Box>
+          {/* /* 🔍 Search Bar for Global Filtering */}
+          <Box sx={{ mb: 2 }} className="absolute right-40 z-10 mr-10 mt-2">
+            <TextField
+              variant="outlined"
+              placeholder="Search..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              sx={{
+                width: "100%",
+                "& .MuiOutlinedInput-root": {
+                  height: "40px",
+                },
 
-                <MaterialReactTable
-                columns={columns}
-                data={filteredData}
-                enableGlobalFilter={false}
-                getRowId={(row) => row.sslId}
-                muiTableBodyRowProps={({ row }) => ({
-                 
-                  sx: {
-                    cursor: "pointer",
-                    backgroundColor: row.index % 2 ? "" : "#ffffff",
-                    "&:hover": {
-                      backgroundColor: "oklch(0.951 0.046 236.824)",
-                    },
-                  },
-                 
-                })}
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+
+          <MaterialReactTable
+            columns={columns}
+            data={filteredData}
+            enableGlobalFilter={false}
+            getRowId={(row) => row.sslId}
+            muiTableBodyRowProps={({ row }) => ({
+
+              sx: {
+                cursor: "pointer",
+                backgroundColor: row.index % 2 ? "" : "#ffffff",
+                "&:hover": {
+                  backgroundColor: "oklch(0.951 0.046 236.824)",
+                },
+              },
+
+            })}
             initialState={{
               columnVisibility: {
                 "issuedTo.commonName": false,
@@ -425,7 +460,7 @@ const SSLTable = ({ loading, setLoading }) => {
             renderRowActions={({ row }) => (
 
               <Box sx={{ display: "flex", gap: "1rem" }}>
-              
+
 
                 <Tooltip title="Delete">
                   <IconButton
@@ -444,7 +479,7 @@ const SSLTable = ({ loading, setLoading }) => {
                 // backgroundImage: "url('./landingpage2.png')",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
-             
+
                 color: "black",
                 fontWeight: "bold",
                 fontSize: "1rem",
@@ -452,7 +487,7 @@ const SSLTable = ({ loading, setLoading }) => {
               },
             }}
             // Row styling: alternate row colors and hover effect
-           
+
             muiTableBodyCellProps={{
               sx: {
                 padding: "8px",
@@ -466,98 +501,143 @@ const SSLTable = ({ loading, setLoading }) => {
 
         {/* // JSX for Details Modal */}
         <Modal open={showDetailsModal} onClose={() => setShowDetailsModal(false)}>
-      <Box className="bg-white p-4 w-5/6"
-        sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-         
-          maxWidth: 900,
-          maxHeight: "90vh",
-          bgcolor: "white",
-          boxShadow: 24,
-          p: 4,
-          borderRadius: "12px",
-          overflowY: "auto",
-        }}
-      >
-        <Typography variant="h5" fontWeight="bold" gutterBottom>
-          SSL Certificate Details
-        </Typography>
+          <Box className="bg-white p-4 w-5/6"
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
 
-        {selectedSSL && (
-          <Box sx={{ mt: 2 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <Typography><strong>🔗 URL:</strong> {selectedSSL.url}</Typography>
-                <Typography><strong>📆 Days Remaining:</strong> {selectedSSL.daysRemaining}</Typography>
-              </Grid>
-            </Grid>
+              maxWidth: 900,
+              maxHeight: "90vh",
+              bgcolor: "white",
+              boxShadow: 24,
+              p: 4,
+              borderRadius: "12px",
+              overflowY: "auto",
+            }}
+          >
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              SSL Certificate Details
+            </Typography>
 
-            <Divider sx={{ my: 2 }} />
+            {selectedSSL && (
+              <Box sx={{ mt: 2 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <Typography><strong>🔗 URL:</strong> {selectedSSL.url}</Typography>
+                    <Typography><strong>📆 Days Remaining:</strong> {selectedSSL.daysRemaining}</Typography>
+                  </Grid>
+                </Grid>
 
-            {/* Email Logs Section */}
-            <Typography variant="h6" fontWeight="bold">📩 Email Logs</Typography>
-            {selectedSSL?.emailLogs?.length > 0 ? (
-              selectedSSL.emailLogs.map((log, index) => (
-                <Box key={index} sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#f5f5f5", borderRadius: "8px" }}>
-                  <Typography><strong>Type:</strong> {log.emailType}</Typography>
-                  <Typography><strong>Recipient:</strong> {log.recipient}</Typography>
-                  <Typography><strong>Subject:</strong> {log.subject}</Typography>
-                  <Typography><strong>Status:</strong> {log.status}</Typography>
-                  <Typography><strong>Sent At:</strong> {new Date(log.sentAt).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+                <Divider sx={{ my: 2 }} />
+
+                {/* Email Logs Section */}
+                <Typography variant="h6" fontWeight="bold">📩 Email Logs</Typography>
+                {selectedSSL?.emailLogs?.length > 0 ? (
+                  selectedSSL.emailLogs.map((log, index) => (
+                    <Box key={index} sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#f5f5f5", borderRadius: "8px" }}>
+                      <Typography><strong>Type:</strong> {log.emailType}</Typography>
+                      <Typography><strong>Recipient:</strong> {log.recipient}</Typography>
+                      <Typography><strong>Subject:</strong> {log.subject}</Typography>
+                      <Typography><strong>Status:</strong> {log.status}</Typography>
+                      <Typography><strong>Sent At:</strong> {new Date(log.sentAt).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+                    </Box>
+                  ))
+                ) : (
+                  <Typography sx={{ ml: 2, color: "gray" }}>No email logs available</Typography>
+                )}
+
+                <Divider sx={{ my: 2 }} />
+
+                {/* Email Schedule Section */}
+                <Typography variant="h6" fontWeight="bold">📅 Email Schedule</Typography>
+                {selectedSSL?.emailSchedule ? (
+                  <Box sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#e3f2fd", borderRadius: "8px" }}>
+                    <Typography><strong>Next 30 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.thirtyDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+                    <Typography><strong>Next 15 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fifteenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+                    <Typography><strong>Next 10 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.tenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+                    <Typography><strong>Next 5 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fiveDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+                  </Box>
+                ) : (
+                  <Typography sx={{ ml: 2, color: "gray" }}>No email schedule available.</Typography>
+                )}
+
+                <Divider sx={{ my: 2 }} />
+
+                {/* Notification Status Section */}
+                <Typography variant="h6" fontWeight="bold">🔔 Notification Status</Typography>
+                <Box sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#f3e5f5", borderRadius: "8px" }}>
+                  <Typography><strong>Normal Email Sent:</strong>   {selectedSSL?.notificationStatus?.NormalSent ? "✅ Yes" : "❌ No"}</Typography>
+
+                  <Typography><strong>30 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.thirtyDaysSent ? "✅ Yes" : "❌ No"}  {selectedSSL?.emailLogs?.find(log => log.emailType === '30days')?.sentAt && (
+                    <>
+                      <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL.emailLogs.find(log => log.emailType === '30days').sentAt).toLocaleString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: 'numeric',
+                        second: 'numeric',
+                      })}
+                    </>
+                  )}</Typography>
+                  <Typography><strong>15 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.fifteenDaysSent ? "✅ Yes" : "❌ No"} {selectedSSL?.emailLogs?.find(log => log.emailType === '15days')?.sentAt && (
+                    <>
+                      <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL.emailLogs.find(log => log.emailType === '15days').sentAt).toLocaleString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: 'numeric',
+                        second: 'numeric',
+                      })}
+                    </>
+                  )}</Typography>
+                  <Typography><strong>10 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.tenDaysSent ? "✅ Yes" : "❌ No"} {selectedSSL?.emailLogs?.find(log => log.emailType === '10days')?.sentAt && (
+                    <>
+                      <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL.emailLogs.find(log => log.emailType === '10days').sentAt).toLocaleString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: 'numeric',
+                        second: 'numeric',
+                      })}
+                    </>
+                  )}</Typography>
+                  <Typography><strong>5 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.fiveDaysSent ? "✅ Yes" : "❌ No"} {selectedSSL?.emailLogs?.find(log => log.emailType === '5days')?.sentAt && (
+                    <>
+                      <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL.emailLogs.find(log => log.emailType === '5days').sentAt).toLocaleString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: 'numeric',
+                        second: 'numeric',
+                      })}
+                    </>
+                  )}</Typography>
+                  <Typography><strong>📧 Daily Email Count:</strong> {selectedSSL?.notificationStatus?.dailyEmailCount || 0}</Typography>
                 </Box>
-              ))
-            ) : (
-              <Typography sx={{ ml: 2, color: "gray" }}>No email logs available</Typography>
-            )}
 
-            <Divider sx={{ my: 2 }} />
+                <Divider sx={{ my: 2 }} />
 
-            {/* Email Schedule Section */}
-            <Typography variant="h6" fontWeight="bold">📅 Email Schedule</Typography>
-            {selectedSSL?.emailSchedule ? (
-              <Box sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#e3f2fd", borderRadius: "8px" }}>
-                <Typography><strong>Next 30 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.thirtyDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
-                <Typography><strong>Next 15 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fifteenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
-                <Typography><strong>Next 10 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.tenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
-                <Typography><strong>Next 5 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fiveDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+                {/* Optional Fields */}
+                {selectedSSL?.siteManager && <Typography><strong>👤 Site Manager:</strong> {selectedSSL.siteManager}</Typography>}
+                {selectedSSL?.email && <Typography><strong>📩 Email:</strong> {selectedSSL.email}</Typography>}
               </Box>
-            ) : (
-              <Typography sx={{ ml: 2, color: "gray" }}>No email schedule available.</Typography>
             )}
 
-            <Divider sx={{ my: 2 }} />
-
-            {/* Notification Status Section */}
-            <Typography variant="h6" fontWeight="bold">🔔 Notification Status</Typography>
-            <Box sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#f3e5f5", borderRadius: "8px" }}>
-                         <Typography><strong>Normal Email Sent:</strong>   {selectedSSL?.notificationStatus?.NormalSent ? "✅ Yes" : "❌ No"}</Typography>
-              <Typography><strong>30 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.thirtyDaysSent ? "✅ Yes" : "❌ No"}</Typography>
-              <Typography><strong>15 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.fifteenDaysSent ? "✅ Yes" : "❌ No"}</Typography>
-              <Typography><strong>10 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.tenDaysSent ? "✅ Yes" : "❌ No"}</Typography>
-              <Typography><strong>5 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.fiveDaysSent ? "✅ Yes" : "❌ No"}</Typography>
-              <Typography><strong>📧 Daily Email Count:</strong> {selectedSSL?.notificationStatus?.dailyEmailCount || 0}</Typography>
-            </Box>
-
-            <Divider sx={{ my: 2 }} />
-
-            {/* Optional Fields */}
-            {selectedSSL?.siteManager && <Typography><strong>👤 Site Manager:</strong> {selectedSSL.siteManager}</Typography>}
-            {selectedSSL?.email && <Typography><strong>📩 Email:</strong> {selectedSSL.email}</Typography>}
+            <Button onClick={() => setShowDetailsModal(false)} variant="contained" color="primary" sx={{ mt: 3, width: "100%" }}>
+              Close
+            </Button>
           </Box>
-        )}
-
-        <Button onClick={() => setShowDetailsModal(false)} variant="contained" color="primary" sx={{ mt: 3, width: "100%" }}>
-          Close
-        </Button>
-      </Box>
-    </Modal>
+        </Modal>
 
 
         {/* // JSX for Edit Modal */}
-       
+
         <Modal
           open={showEditModal}
           onClose={() => setShowEditModal(false)}
@@ -565,39 +645,42 @@ const SSLTable = ({ loading, setLoading }) => {
           aria-describedby="edit-modal-description"
         >
           <Box
+            className="bg-white p-4"
             sx={{
               position: "absolute",
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              width: 400,
+              width: { xs: "90%", sm: "70%", md: "50%" }, // Responsive width
+              maxWidth: "90vw", // Prevents overflowing on large screens
+              maxHeight: "90vh", // Prevents modal from going off-screen
               bgcolor: "background.paper",
               borderRadius: "15px",
               boxShadow: 24,
               p: 4,
+              overflowY: "auto", // Allows scrolling inside modal if needed
             }}
           >
             <Typography id="edit-modal-title" variant="h6">
               Edit SSL Details
             </Typography>
-            <TextField
-              label="URL"
-              fullWidth
-              value={editSSL?.url || ""}
-              disabled
-              margin="normal"
-            />
+
+            <TextField label="URL" fullWidth value={editSSL?.url || ""} disabled margin="normal" />
             <TextField
               label="Valid From"
               fullWidth
-              value={editSSL?.validFrom || ""}
+              value={editSSL?.validFrom
+                ? new Date(editSSL.validFrom).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+                : ""}
               disabled
               margin="normal"
             />
             <TextField
               label="Valid To"
               fullWidth
-              value={editSSL?.validTo || ""}
+              value={editSSL?.validTo
+                ? new Date(editSSL.validTo).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+                : ""}
               disabled
               margin="normal"
             />
@@ -605,40 +688,47 @@ const SSLTable = ({ loading, setLoading }) => {
               label="Site Manager"
               fullWidth
               value={editSSL?.siteManager || ""}
-              onChange={(e) =>
-                setEditSSL({ ...editSSL, siteManager: e.target.value })
-              }
+              onChange={(e) => setEditSSL({ ...editSSL, siteManager: e.target.value })}
               margin="normal"
             />
             <TextField
               label="Email"
               fullWidth
               value={editSSL?.email || ""}
-              onChange={(e) =>
-                setEditSSL({ ...editSSL, email: e.target.value })
-              }
+              onChange={(e) => setEditSSL({ ...editSSL, email: e.target.value })}
               margin="normal"
             />
+
+            {/* Buttons Section */}
             <Box
               sx={{
-                mt: 2,
+                mt: 3,
                 display: "flex",
-                justifyContent: "flex-end",
-                gap: 1,
+                flexWrap: "wrap", // Prevents button overflow
+                justifyContent: { xs: "center", md: "flex-end" }, // Center on small screens, right-align on larger screens
+                gap: 2,
               }}
             >
               <Button variant="contained" color="primary" onClick={updateSSL}>
                 Save Changes
               </Button>
+
               <Button
-                variant="outlined"
-                onClick={() => setShowEditModal(false)}
+                variant="contained"
+                onClick={() => saveManagerDetails(editSSL)}
+                sx={{ color: "white", backgroundColor: "green" }}
               >
+                {loading && <FaSpinner className="animate-spin mr-2" />}
+                📩 Send Mail
+              </Button>
+
+              <Button variant="outlined" color="error" onClick={() => setShowEditModal(false)}>
                 Cancel
               </Button>
             </Box>
           </Box>
         </Modal>
+
 
         <Modal
           open={showDeleteModal}
@@ -732,14 +822,14 @@ const useDeleteSSL = (setLoading) => {
         await queryClient.invalidateQueries({ queryKey: ["sslDetails"] });
       }
     } catch (error) {
-      console.log("Failed to delete SSL:", error,sslId);
-      
+      console.log("Failed to delete SSL:", error, sslId);
+
       console.error("Failed to delete SSL:", error?.response?.data?.message || error.message);
-      
+
       // Show user-friendly error messages
       const errorMessage =
         error?.response?.data?.message || "Something went wrong while deleting SSL.";
-      
+
       toast.error(errorMessage);
     } finally {
       setTimeout(() => {

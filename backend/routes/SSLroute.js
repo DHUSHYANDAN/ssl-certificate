@@ -1,7 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const { checkAndFetchSSL, storeManagerAndSendMail,getAllSSLDetails,updateSSLDetails,deleteSSLDetails,updateCronSchedule,getCronSchedule} = require("../Controllers.js/SSLcontroller");
 
+
+const { checkAndFetchSSL,getAllSSLDetails,updateSSLDetails,deleteSSLDetails} = require("../Controllers.js/SSLcontrollers./sslDetails");
+
+const { storeManagerAndSendMail}= require("../Controllers.js/SSLcontrollers./sslmails");
+
+const {updateCronSchedule,getCronSchedule}= require("../Controllers.js/SSLcontrollers./cronSchedule");
 const protect = require("../middleware/ProtectedRoutes");
 
 router.post("/fetch-ssl", protect, checkAndFetchSSL);
