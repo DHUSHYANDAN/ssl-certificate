@@ -5,7 +5,9 @@ import SignUp from "./pages/signuppage";
 import Home from "./pages/Homepage";
 import Database from "./pages/databasepage"
 import SettingPage from "./pages/SettingPage";
+import Exporturl from "./pages/exportUrlpage";
 import ProtectedRoute from "./components/protectedRoutes";
+
 
 function App() {
     return (
@@ -14,7 +16,7 @@ function App() {
                 <Route path="/" element={<SignIn />} />
                 <Route path="/signin" element={<SignIn />} />
                 <Route path="/signup" element={<SignUp />} />
-
+                  <Route path='*' element={<SignIn />} />
                 {/* Protected Route for Home */}
                 <Route element={<ProtectedRoute />}>
                     <Route path="/home" element={<Home />} />  
@@ -24,6 +26,9 @@ function App() {
                </Route>
                 <Route element={<ProtectedRoute />}>
                 <Route path="/database" element={<Database />} />
+                </Route>
+                <Route element={<ProtectedRoute />}>
+                <Route path="/export" element={<Exporturl />} />
                 </Route>
             </Routes>
         </Router>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState} from "react";
 import { MaterialReactTable } from "material-react-table";
 import { FaSpinner } from "react-icons/fa";
 import { FaEye } from 'react-icons/fa';
@@ -120,6 +120,38 @@ const SSLTable = ({ loading, setLoading }) => {
     setLoading(false);
   };
 
+
+const [minute, setMinute] = useState("");
+const [hour, setHour] = useState("");
+if(minute === "*"){
+  setMinute("00");
+  }
+  if(hour === "*"){
+    setHour("00");
+  }
+  
+  
+  const fetchCronSchedule = async () => {
+  
+    try {
+      const response = await axios.get(`${baseUrl}/cron-schedule`, { withCredentials: true });
+      const cronParts = response.data.cronSchedule.split(" ");
+      setMinute(cronParts[0] || "*");
+      setHour(cronParts[1] || "*");
+    } catch (error) {
+      toast.error("Failed to fetch schedule.");
+      console.error(error);
+    }
+    setLoading(false);
+  };
+
+  
+   useEffect(() => {
+    fetchCronSchedule();
+  }, []);
+ 
+
+  
   const columns = useMemo(
     () => [
       {
@@ -258,11 +290,21 @@ const SSLTable = ({ loading, setLoading }) => {
         header: "Site Manager",
 
         enableEditing: true,
+        Cell: ({ cell }) => {
+          const name = cell.getValue();
+          return name.trim() !== "" ? name : <i style={{ color: "red" }}>⚠️ name is required</i>;
+        }
       },
       {
         accessorKey: "email",
-        header: "Email",
+        header: "Email",  
         enableEditing: true,
+        Cell: ({ cell }) => {
+          const email = cell.getValue();
+          return email.trim() !== "" ? email : <i style={{ color: "red" }}>⚠️ email is required</i>;
+        }
+        
+        
       },
 
       {
@@ -554,10 +596,11 @@ const SSLTable = ({ loading, setLoading }) => {
                 <Typography variant="h6" fontWeight="bold">📅 Email Schedule</Typography>
                 {selectedSSL?.emailSchedule ? (
                   <Box sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#e3f2fd", borderRadius: "8px" }}>
-                    <Typography><strong>Next 30 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.thirtyDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
-                    <Typography><strong>Next 15 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fifteenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
-                    <Typography><strong>Next 10 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.tenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
-                    <Typography><strong>Next 5 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fiveDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })}</Typography>
+                    <Typography><strong>Next 30 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.thirtyDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, {hour}:{minute}:00 {hour >=12 ? "PM" : "AM"}
+                     </Typography>
+                    <Typography><strong>Next 15 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fifteenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, {hour}:{minute}:00 {hour >=12 ? "PM" : "AM"}</Typography>
+                    <Typography><strong>Next 10 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.tenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, {hour}:{minute}:00 {hour >=12 ? "PM" : "AM"}</Typography>
+                    <Typography><strong>Next 5 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fiveDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, {hour}:{minute}:00 {hour >=12 ? "PM" : "AM"}</Typography>
                   </Box>
                 ) : (
                   <Typography sx={{ ml: 2, color: "gray" }}>No email schedule available.</Typography>

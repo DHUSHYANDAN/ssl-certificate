@@ -41,7 +41,7 @@ const storeManagerAndSendMail = async (req, res) => {
           fiveDays: new Date(validTo.getTime() - (5 * 24 * 60 * 60 * 1000)),
           daily: new Date(validTo.getTime() - (5 * 24 * 60 * 60 * 1000))
         },
-        emailsSent: { Normal: false },
+
         ssl: sslData._id
       });
       

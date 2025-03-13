@@ -4,6 +4,7 @@ import "react-toastify/dist/ReactToastify.css";
 import baseUrl from "../URL";
 import { FaSpinner } from "react-icons/fa";
 
+
 const Home = () => {
     const [url, setUrl] = useState("");
     const [siteManager, setSiteManager] = useState("");
@@ -106,11 +107,12 @@ const Home = () => {
     };
 
     return (
-        <div className="flex flex-col items-center pt-6 min-h-screen bg-gray-100 bg-cover bg-center" style={{ backgroundImage: "url('./landingpage2.png')" }}>
+        <div className="flex flex-col  pl-16 md:pl-5 md:items-start  lg:pl-[220px] xl:pl-0 xl:items-center  pt-6  min-h-screen bg-gray-100 bg-cover bg-center" style={{ backgroundImage: "url('./landingpage2.png')" }}>
+           
             <h1 className="text-3xl font-bold mb-6">Monitor SSL Certificate</h1>
 
             {/* URL Input Section */}
-            <div className="w-full md:w-3/6 bg-gray-700 p-6 opacity-80 rounded shadow-md">
+            <div className="w-full md:w-2/5 bg-gray-700 p-6 opacity-80 rounded shadow-md">
                 <label className="block text-gray-100 text-sm font-bold mb-2">Enter the URL</label>
                 <input
                     type="text"
@@ -135,7 +137,7 @@ const Home = () => {
 
             {/* SSL Certificate Details */}
             {certificate && (
-                <div className="mt-6 bg-gray-700 p-4 opacity-80 rounded shadow-md">
+                <div className="mt-6 md:w-3/6 bg-gray-700 p-4 opacity-80 rounded shadow-md">
                     <h2 className="text-xl font-bold text-white mb-4">SSL Certificate Details</h2>
                     <table className="w-full border border-gray-300 rounded-lg shadow-sm overflow-hidden">
                         <tbody>
@@ -175,6 +177,7 @@ const Home = () => {
             )}
 
             <ToastContainer autoClose={2000} />
+          
         </div>
     );
 };

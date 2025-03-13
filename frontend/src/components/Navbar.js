@@ -85,7 +85,7 @@ const Navbars = () => {
           </Link>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex space-x-6">
+          <div className="hidden lg:flex space-x-6">
             {!user ? (
               <>
                 <button
@@ -116,6 +116,11 @@ const Navbars = () => {
                   URL Monitored
                 </button>
                 <button
+                className="hover:text-white shadow-xl font-bold hover:bg-blue-500 px-4 rounded-lg
+                "
+                onClick={() => navigate("/export")}
+                >Report</button>
+                <button
                   className="hover:text-white shadow-xl font-bold hover:bg-blue-500 px-4 rounded-lg"
                   onClick={() => navigate("/settings")}
                 >
@@ -134,7 +139,7 @@ const Navbars = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden text-gray-500 hover:bg-gray-100 p-2 rounded-lg focus:outline-none"
+            className="lg:hidden text-gray-500 hover:bg-gray-100 p-2 rounded-lg focus:outline-none"
           >
             <svg
               className="w-6 h-6"
@@ -156,7 +161,7 @@ const Navbars = () => {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden bg-white shadow-lg">
+        <div className="lg:hidden bg-white shadow-lg">
           <div className="px-4 pb-3 space-y-2">
             {!user ? (
               <>
@@ -194,6 +199,16 @@ const Navbars = () => {
                   >
                     URL Monitored
                   </button>
+                </div>
+                <div className="flex sm:justify-center">
+                  <button
+                  className="sm:w-1/2 w-full hover:text-white border-b-2 border-d
+                  dashed text-left sm:text-center font-bold hover:bg-blue-600 px-4 py-2
+                  rounded-md"
+                  onClick={() => navigate("/export")}
+                  >
+                    Report
+                    </button>
                 </div>
                 <div className="flex sm:justify-center">
                   <button

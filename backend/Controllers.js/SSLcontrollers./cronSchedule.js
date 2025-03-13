@@ -68,13 +68,13 @@ const getCronSchedule = async (req, res) => {
     let scheduleData = await Schedule.findOne({ active: true });
 
     if (!scheduleData) {
-      scheduleData = new Schedule({ name: "timeschedule", cronSchedule: "0 6 * * *" });
+      scheduleData = new Schedule({  cronSchedule: "0 6 * * *" });
       await scheduleData.save();
     }
 
     return res.status(200).json({
       message: "Cron schedule retrieved successfully",
-      name: scheduleData.name,
+     
       cronSchedule: scheduleData.cronSchedule,
     });
   } catch (error) {

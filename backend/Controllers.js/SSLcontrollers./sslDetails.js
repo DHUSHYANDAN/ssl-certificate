@@ -170,9 +170,12 @@ const updateSSLDetails = async (req, res) => {
       return res.status(404).json({ message: "SSL details not found for this URL" });
     }
     
+    const emailSchedule = await EmailSchedule.findOne({ sslId: updatedSSL.sslId });
+
+
     // If validTo date changed, update the email schedule
     if (updateData.validTo) {
-      const emailSchedule = await EmailSchedule.findOne({ sslId: updatedSSL.sslId });
+    
       if (emailSchedule) {
         const validTo = new Date(updateData.validTo);
         
@@ -199,6 +202,19 @@ const updateSSLDetails = async (req, res) => {
         await emailSchedule.save();
       }
     }
+     //if any thing updated schedule the email
+    if (emailSchedule) {
+        let validTo = updateData.validTo ? new Date(updateData.validTo) : new Date(updatedSSL.validTo);
+  
+        // Update notification dates (ensure a valid date is used)
+        emailSchedule.nextEmailDates = {
+          Normal: new Date(validTo.getTime() - (30 * 24 * 60 * 60 * 1000)),
+          thirtyDays: new Date(validTo.getTime() - (30 * 24 * 60 * 60 * 1000)),
+          fifteenDays: new Date(validTo.getTime() - (15 * 24 * 60 * 60 * 1000)),
+          tenDays: new Date(validTo.getTime() - (10 * 24 * 60 * 60 * 1000)),
+          fiveDays: new Date(validTo.getTime() - (5 * 24 * 60 * 60 * 1000)),
+          daily: new Date(validTo.getTime() - (5 * 24 * 60 * 60 * 1000))
+        };}
     
     res.status(200).json({ message: "SSL details updated", data: updatedSSL });
   } catch (error) {
