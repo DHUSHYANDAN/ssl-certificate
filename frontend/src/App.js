@@ -13,12 +13,13 @@ function App() {
     return (
         <Router>
             <Routes>
-                <Route path="/" element={<SignIn />} />
+              
                 <Route path="/signin" element={<SignIn />} />
                 <Route path="/signup" element={<SignUp />} />
                   <Route path='*' element={<SignIn />} />
                 {/* Protected Route for Home */}
                 <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<Home />} />
                     <Route path="/home" element={<Home />} />  
                 </Route>
                 <Route element={<ProtectedRoute />}>

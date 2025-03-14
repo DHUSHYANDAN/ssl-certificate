@@ -62,13 +62,19 @@ const Home = () => {
             setCertificate(data.data);
             toast.success(data.message || "SSL data retrieved!", { autoClose: 2000 });
         } catch (error) {
-            if (error.message === "Socketerror") {
+            if (error.message === "Socketerror" || error.message === "TLS error") {
                 toast.error("website is not reachable");
-            } else {
+            } else if (error.message === "Not authorized, no token") {
+               toast.error("Your session has Expired, Please login");
+            }else {
                 toast.error(error.message);
-            }
+                }
         }
         setLoading(false);
+    };
+
+    const convertToIST = (utcDate) => {
+        return new Date(utcDate).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
     };
 
     // Validate email format
@@ -107,7 +113,7 @@ const Home = () => {
     };
 
     return (
-        <div className="flex flex-col  pl-16 md:pl-5 md:items-start  lg:pl-[220px] xl:pl-0 xl:items-center  pt-6  min-h-screen bg-gray-100 bg-cover bg-center" style={{ backgroundImage: "url('./landingpage2.png')" }}>
+        <div className="flex flex-col p-5 sm:pl-16 md:pl-5 md:items-start  lg:pl-[220px] xl:pl-0 xl:items-center  pt-6  min-h-screen bg-gray-100 bg-cover bg-center" style={{ backgroundImage: "url('./landingpage2.png')" }}>
            
             <h1 className="text-3xl font-bold mb-6">Monitor SSL Certificate</h1>
 
@@ -137,26 +143,31 @@ const Home = () => {
 
             {/* SSL Certificate Details */}
             {certificate && (
-                <div className="mt-6 md:w-3/6 bg-gray-700 p-4 opacity-80 rounded shadow-md">
-                    <h2 className="text-xl font-bold text-white mb-4">SSL Certificate Details</h2>
-                    <table className="w-full border border-gray-300 rounded-lg shadow-sm overflow-hidden">
-                        <tbody>
-                            {[
-                                { label: "URL", value: certificate.url },
-                                { label: "Issued To", value: `${certificate.issuedTo.commonName} (${certificate.issuedTo.organization})` },
-                                { label: "Issued By", value: `${certificate.issuedBy.commonName} (${certificate.issuedBy.organization})` },
-                                { label: "Valid From", value: certificate.validFrom },
-                                { label: "Valid To", value: certificate.validTo },
-                            ].map((item, index) => (
-                                <tr key={item.label} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                                    <th className="px-4 py-3 text-gray-700 font-semibold border-b border-gray-300">{item.label}:</th>
-                                    <td className="px-4 py-3 border-b border-gray-300">{item.value}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+  <div className="mt-6 w-full max-w-lg bg-gray-700 p-4 opacity-80 rounded shadow-md">
+    <h2 className="text-xl font-bold text-white mb-4">SSL Certificate Details</h2>
+    <div className="overflow-x-auto">
+      <table className="w-full border border-gray-300 rounded-lg shadow-sm">
+        <tbody>
+          {[
+            { label: "URL", value: certificate.url },
+            { label: "Issued To", value: `${certificate.issuedTo.commonName} (${certificate.issuedTo.organization})` },
+            { label: "Issued By", value: `${certificate.issuedBy.commonName} (${certificate.issuedBy.organization})` },
+            { label: "Valid From", value: convertToIST(certificate.validFrom) },
+            { label: "Valid To", value: convertToIST(certificate.validTo) },
+          ].map((item, index) => (
+            <tr key={item.label} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+              <th className="px-4 py-3 text-gray-700 font-semibold border-b border-gray-300 text-left">
+                {item.label}:
+              </th>
+              <td className="px-4 py-3 border-b border-gray-300 break-words">{item.value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
+
 
             {/* Site Manager Details */}
             {certificate && (

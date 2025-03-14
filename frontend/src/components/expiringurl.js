@@ -9,17 +9,26 @@ const ExpiringURL = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [expiredData, setExpiredData] = useState([]);
 
     // Track screen size for conditional rendering
-    const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 740);
+    const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 760);
 
     useEffect(() => {
         const fetchSSLDetails = async () => {
             try {
                 const response = await axios.get(`${baseUrl}/all-ssl`, { withCredentials: true });
+
                 if (response.data && response.data.data) {
-                    const filteredData = response.data.data.filter((ssl) => ssl.daysRemaining <= 50);
+                    const allSSLs = response.data.data;
+
+                    // Filter SSLs expiring in 30 days or less
+                    const filteredData = allSSLs.filter((ssl) => ssl.daysRemaining <= 30);
                     setSslData(filteredData);
+
+                    // Filter expired SSLs (validTo date is in the past)
+                    const expired = allSSLs.filter((ssl) => new Date(ssl.validTo) < new Date());
+                    setExpiredData(expired);
                 } else {
                     throw new Error("Invalid response structure");
                 }
@@ -34,17 +43,17 @@ const ExpiringURL = () => {
         fetchSSLDetails();
 
         // Handle screen resize
-        const handleResize = () => setIsSmallScreen(window.innerWidth < 640);
+        const handleResize = () => setIsSmallScreen(window.innerWidth < 740);
         window.addEventListener("resize", handleResize);
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
     return (
         <div className="relative">
-            {/* Button only appears on small screens */}
+            {/* Floating Button (for small screens) */}
             {isSmallScreen && sslData.length > 0 && (
                 <motion.button
-                    className="fixed top-24 right-6 flex items-center gap-3 bg-red-600 text-white px-5 py-3 rounded-full 
+                    className="fixed bottom-10 right-6 flex items-center gap-3 bg-red-600 text-white px-5 py-3 rounded-full 
                     shadow-2xl transition-all hover:bg-red-700 hover:scale-105 hover:shadow-red-500/50"
                     onClick={() => setIsModalOpen(true)}
                     initial={{ opacity: 0, x: 20 }}
@@ -58,18 +67,18 @@ const ExpiringURL = () => {
                 </motion.button>
             )}
 
-            {/* Modal is always visible on larger screens, but button-controlled on small screens */}
+            {/* Expiring SSL Modal */}
             <AnimatePresence>
                 {(isSmallScreen ? isModalOpen : sslData.length > 0) && (
                     <motion.div
-                        className="fixed inset-0 h-1/2 flex items-center mt-[200px] justify-end mr-2 bg-opacity-50"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
+                        className="fixed right-0 top-12 -translate-y-1/2 mt-10 mb-12 flex items-center justify-end h-auto p-2 bg-none"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
                         onClick={() => isSmallScreen && setIsModalOpen(false)}
                     >
                         <motion.div
-                            className="bg-white w-96 h-full p-6 shadow-xl rounded-l-lg"
+                            className="bg-white w-96 max-h-[85vh] overflow-y-auto p-6 shadow-xl rounded-lg"
                             initial={{ x: isSmallScreen ? "100%" : 0 }}
                             animate={{ x: 0 }}
                             exit={{ x: isSmallScreen ? "100%" : 0 }}
@@ -82,8 +91,8 @@ const ExpiringURL = () => {
                             ) : error ? (
                                 <p className="text-center text-red-500">Error: {error}</p>
                             ) : sslData.length === 0 ? (
-                                <p className="text-center text-gray-500">No expiring URLs in the next 50 days.</p>
-                            ) : (
+                                <p className="text-center text-gray-500">No expiring URLs in the next 30 days.</p>
+                            ) : ( <>
                                 <div className="space-y-3 mt-4">
                                     {sslData.map((ssl) => (
                                         <motion.div
@@ -97,20 +106,41 @@ const ExpiringURL = () => {
                                             <p className="text-sm text-gray-700">
                                                 Expires in <span className="font-semibold text-red-600">{ssl.daysRemaining}</span> days
                                             </p>
+                                            
                                         </motion.div>
                                     ))}
                                 </div>
+                            <h1 className="text-lg font-bold text-red-600 mt-4">Expired SSL Certificates</h1>
+                                 <div className="space-y-3 mt-4">
+                                 {expiredData.map((ssl) =>  (
+                                     <motion.div
+                                         key={ssl._id}
+                                         className="p-4 bg-gray-100 rounded-lg shadow-md hover:shadow-lg transition"
+                                         initial={{ opacity: 0 }}
+                                         animate={{ opacity: 1 }}
+                                         transition={{ duration: 0.5 }}
+                                     >
+                                         <h2 className="text-lg font-bold text-gray-900">{ssl.url}</h2>
+                                         <p className="text-sm text-gray-700">
+                                             Expired before <span className="font-semibold text-red-600">{ssl.expiryStatus}</span> days
+                                         </p>
+                                         
+                                     </motion.div>
+                                 ))}
+                             </div></>
                             )}
-                          <Link to="/export">
-                            <button className="w-full mt-4 bg-red-600 text-white py-2 rounded-md hover:bg-red-700 transition">
-                                view
-                            </button>
-                          </Link>
 
-                            {/* Close Button only for small screens */}
+                            {/* View More Button */}
+                            <Link to="/export">
+                                <button className="w-full mt-4 bg-red-600 text-white py-2 rounded-md hover:bg-red-700 transition">
+                                    View
+                                </button>
+                            </Link>
+
+                            {/* Close Button (Only for small screens) */}
                             {isSmallScreen && (
-                                <button 
-                                    onClick={() => setIsModalOpen(false)} 
+                                <button
+                                    onClick={() => setIsModalOpen(false)}
                                     className="w-full mt-4 bg-gray-700 text-white py-2 rounded-md hover:bg-gray-800 transition"
                                 >
                                     Close

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState} from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { MaterialReactTable } from "material-react-table";
 import { FaSpinner } from "react-icons/fa";
 import { FaEye } from 'react-icons/fa';
@@ -36,35 +36,35 @@ const SSLTable = ({ loading, setLoading }) => {
   // 📌 Custom Global Filter Function
   const filteredData = useMemo(() => {
     if (!globalFilter) return sslDetails;
-  
+
     const lowerCaseFilter = globalFilter.toLowerCase();
-  
+
     return sslDetails.filter((row) => {
       return Object.values(row).some((value) => {
         if (!value) return false;
-  
+
         // Convert value to a string for general text search
         const stringValue = String(value).toLowerCase();
         if (stringValue.includes(lowerCaseFilter)) return true;
-  
+
         // Convert numeric values (e.g., daysRemaining) to check
         if (typeof value === "number" && value.toString().includes(globalFilter)) {
           return true;
         }
-  
+
         // Check date values (validFrom, validTo)
         if (row.validFrom || row.validTo) {
           const validFrom = new Date(row.validFrom).toLocaleDateString("en-IN");
           const validTo = new Date(row.validTo).toLocaleDateString("en-IN");
-  
+
           return validFrom.includes(globalFilter) || validTo.includes(globalFilter);
         }
-  
+
         return false;
       });
     });
   }, [globalFilter, sslDetails]);
-  
+
 
   const validateManagerName = (siteManager) => {
     return /^[a-zA-Z\s]*$/.test(siteManager);
@@ -121,37 +121,37 @@ const SSLTable = ({ loading, setLoading }) => {
   };
 
 
-const [minute, setMinute] = useState("");
-const [hour, setHour] = useState("");
-if(minute === "*"){
-  setMinute("00");
+  const [minute, setMinute] = useState("");
+  const [hour, setHour] = useState("");
+  if (minute === "*") {
+    setMinute("00");
   }
-  if(hour === "*"){
+  if (hour === "*") {
     setHour("00");
   }
-  
-  
+
+
   const fetchCronSchedule = async () => {
-  
+
     try {
       const response = await axios.get(`${baseUrl}/cron-schedule`, { withCredentials: true });
       const cronParts = response.data.cronSchedule.split(" ");
       setMinute(cronParts[0] || "*");
       setHour(cronParts[1] || "*");
     } catch (error) {
-      toast.error("Failed to fetch schedule.");
+      toast.error("Your session has Expired Please Login Again", { autoClose: 2000 });
       console.error(error);
     }
     setLoading(false);
   };
 
-  
-   useEffect(() => {
+
+  useEffect(() => {
     fetchCronSchedule();
   }, []);
- 
 
-  
+
+
   const columns = useMemo(
     () => [
       {
@@ -161,7 +161,7 @@ if(minute === "*"){
         enableEditing: false,
         enableSorting: false,
         enableColumnFilter: false,
- 
+
         Edit: () => null,
         Cell: ({ row }) => row.index + 1,
 
@@ -260,6 +260,9 @@ if(minute === "*"){
             if (days > 120) return { backgroundColor: "#90EE90", color: "black" }; // Light Green
             if (days > 80) return { backgroundColor: "orange", color: "black" }; // Orange
             if (days > 40) return { backgroundColor: "red", color: "white" }; // Red
+            if (days === "Expired") {
+              return { backgroundColor: "white", color: "darkred" };
+            }
             return { backgroundColor: "darkred", color: "white" }; // Dark Red
           };
 
@@ -274,7 +277,8 @@ if(minute === "*"){
                 alignItems: "center",
               }}
             >
-              {`${diffDays} days`}
+              {diffDays === "Expired" ? "Expired" : `${diffDays} days`}
+
             </span>
           );
         },
@@ -297,14 +301,14 @@ if(minute === "*"){
       },
       {
         accessorKey: "email",
-        header: "Email",  
+        header: "Email",
         enableEditing: true,
         Cell: ({ cell }) => {
           const email = cell.getValue();
           return email.trim() !== "" ? email : <i style={{ color: "red" }}>⚠️ email is required</i>;
         }
-        
-        
+
+
       },
 
       {
@@ -326,7 +330,7 @@ if(minute === "*"){
             </Tooltip>
             <Tooltip title="Edit">
               <IconButton onClick={() => openEditModal(row.original)}>
-                <EditIcon  />
+                <EditIcon />
               </IconButton>
             </Tooltip>
             <Tooltip title="Delete">
@@ -444,10 +448,10 @@ if(minute === "*"){
         </div>
       )}
       <div
-        className="bg-cover screen-h bg-center"
+        className="bg-cover  bg-center min-h-screen"
         style={{ backgroundImage: "url('./landingpage2.png')" }}
       >
-        <Box sx={{ p: 2, height: "100vh" }}>
+        <Box sx={{ p: 2 }}>
           <h1 className="font-bold text-2xl text-center mb-1">
             SSL Certificate Details Monitoring
           </h1>
@@ -475,11 +479,12 @@ if(minute === "*"){
             />
           </Box>
 
-          <MaterialReactTable
+          <MaterialReactTable className="h-1/2"
             columns={columns}
             data={filteredData}
             enableGlobalFilter={false}
             getRowId={(row) => row.sslId}
+           
             muiTableBodyRowProps={({ row }) => ({
 
               sx: {
@@ -487,6 +492,7 @@ if(minute === "*"){
                 backgroundColor: row.index % 2 ? "" : "#ffffff",
                 "&:hover": {
                   backgroundColor: "oklch(0.951 0.046 236.824)",
+                 
                 },
               },
 
@@ -596,11 +602,11 @@ if(minute === "*"){
                 <Typography variant="h6" fontWeight="bold">📅 Email Schedule</Typography>
                 {selectedSSL?.emailSchedule ? (
                   <Box sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#e3f2fd", borderRadius: "8px" }}>
-                    <Typography><strong>Next 30 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.thirtyDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, {hour}:{minute}:00 {hour >=12 ? "PM" : "AM"}
-                     </Typography>
-                    <Typography><strong>Next 15 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fifteenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, {hour}:{minute}:00 {hour >=12 ? "PM" : "AM"}</Typography>
-                    <Typography><strong>Next 10 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.tenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, {hour}:{minute}:00 {hour >=12 ? "PM" : "AM"}</Typography>
-                    <Typography><strong>Next 5 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fiveDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, {hour}:{minute}:00 {hour >=12 ? "PM" : "AM"}</Typography>
+                    <Typography><strong>Next 30 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.thirtyDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, {hour}:{minute}:00 {hour >= 12 ? "PM" : "AM"}
+                    </Typography>
+                    <Typography><strong>Next 15 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fifteenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, {hour}:{minute}:00 {hour >= 12 ? "PM" : "AM"}</Typography>
+                    <Typography><strong>Next 10 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.tenDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, {hour}:{minute}:00 {hour >= 12 ? "PM" : "AM"}</Typography>
+                    <Typography><strong>Next 5 Days:</strong> {new Date(selectedSSL.emailSchedule?.nextEmailDates?.fiveDays).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, {hour}:{minute}:00 {hour >= 12 ? "PM" : "AM"}</Typography>
                   </Box>
                 ) : (
                   <Typography sx={{ ml: 2, color: "gray" }}>No email schedule available.</Typography>
@@ -611,9 +617,9 @@ if(minute === "*"){
                 {/* Notification Status Section */}
                 <Typography variant="h6" fontWeight="bold">🔔 Notification Status</Typography>
                 <Box sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#f3e5f5", borderRadius: "8px" }}>
-                  <Typography><strong>Normal Email Sent:</strong>   {selectedSSL?.notificationStatus?.NormalSent ? "✅ Yes" : "❌ No"}</Typography>
+                  <Typography><strong>Normal Email Sent:</strong>   {selectedSSL?.notificationStatus?.NormalSent ? "✅ " : "❌ "}</Typography>
 
-                  <Typography><strong>30 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.thirtyDaysSent ? "✅ Yes" : "❌ No"}  {selectedSSL?.emailLogs?.find(log => log.emailType === '30days')?.sentAt && (
+                  <Typography><strong>30 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.thirtyDaysSent ? "✅ " : "❌ "}  {selectedSSL?.emailLogs?.find(log => log.emailType === '30days')?.sentAt && (
                     <>
                       <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL.emailLogs.find(log => log.emailType === '30days').sentAt).toLocaleString('en-US', {
                         month: 'long',
@@ -625,7 +631,7 @@ if(minute === "*"){
                       })}
                     </>
                   )}</Typography>
-                  <Typography><strong>15 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.fifteenDaysSent ? "✅ Yes" : "❌ No"} {selectedSSL?.emailLogs?.find(log => log.emailType === '15days')?.sentAt && (
+                  <Typography><strong>15 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.fifteenDaysSent ? "✅ " : "❌ "} {selectedSSL?.emailLogs?.find(log => log.emailType === '15days')?.sentAt && (
                     <>
                       <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL.emailLogs.find(log => log.emailType === '15days').sentAt).toLocaleString('en-US', {
                         month: 'long',
@@ -637,7 +643,7 @@ if(minute === "*"){
                       })}
                     </>
                   )}</Typography>
-                  <Typography><strong>10 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.tenDaysSent ? "✅ Yes" : "❌ No"} {selectedSSL?.emailLogs?.find(log => log.emailType === '10days')?.sentAt && (
+                  <Typography><strong>10 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.tenDaysSent ? "✅ " : "❌ "} {selectedSSL?.emailLogs?.find(log => log.emailType === '10days')?.sentAt && (
                     <>
                       <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL.emailLogs.find(log => log.emailType === '10days').sentAt).toLocaleString('en-US', {
                         month: 'long',
@@ -649,7 +655,7 @@ if(minute === "*"){
                       })}
                     </>
                   )}</Typography>
-                  <Typography><strong>5 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.fiveDaysSent ? "✅ Yes" : "❌ No"} {selectedSSL?.emailLogs?.find(log => log.emailType === '5days')?.sentAt && (
+                  <Typography><strong>5 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.fiveDaysSent ? "✅ " : "❌ "} {selectedSSL?.emailLogs?.find(log => log.emailType === '5days')?.sentAt && (
                     <>
                       <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL.emailLogs.find(log => log.emailType === '5days').sentAt).toLocaleString('en-US', {
                         month: 'long',

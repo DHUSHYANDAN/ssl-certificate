@@ -127,10 +127,23 @@ const getAllSSLDetails = async (req, res) => {
         path: 'emailLogs',
         options: { sort: { 'sentAt': -1 }, limit: 5 } // Most recent 5 emails
       });
+
+          // Convert to Indian Standard Time (IST)
+    const now = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    const today = new Date(now).setHours(0, 0, 0, 0); // Remove time part for comparison
+
       
-    // Calculate days until expiration for each record
-    const detailsWithExpiry = sslDetails.map(ssl => {
-      const daysRemaining = ssl.daysUntilExpiration();
+   // Calculate days until expiration for each record
+   const detailsWithExpiry = sslDetails.map(ssl => {
+    let validToIST = new Date(ssl.validTo).toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    validToIST = new Date(validToIST).setHours(0, 0, 0, 0); // Remove time part
+     
+    let daysRemaining = Math.ceil((validToIST - today) / (1000 * 60 * 60 * 24));
+    let expiryStatus =  Math.ceil((validToIST - today) / (1000 * 60 * 60 * 24)) * -1;
+    // If expired, mark as "Expired"
+    if (daysRemaining < 0) {
+      daysRemaining = "Expired";
+    }
       
       // Determine notification status
       const notificationStatus = {
@@ -145,6 +158,7 @@ const getAllSSLDetails = async (req, res) => {
       return {
         ...ssl.toObject(),
         daysRemaining,
+        expiryStatus,
         notificationStatus
       };
     });
@@ -155,6 +169,8 @@ const getAllSSLDetails = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Error retrieving SSL details", error: error.message });
+    console.log(error.message);
+    
   }
 };
 

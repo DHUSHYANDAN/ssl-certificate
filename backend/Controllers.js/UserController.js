@@ -12,7 +12,7 @@ const generateToken = (userId, name, email, res) => {
         httpOnly: true, 
         secure: process.env.NODE_ENV === "production" ? true : false, 
         sameSite: "strict",
-        maxAge: 24 * 60 * 60 * 1000, // 1 day
+        maxAge: 30 * 60 * 1000, // 30 minutes
     });
 };
 
@@ -52,7 +52,7 @@ const loginUser = async (req, res) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production" ? true : false,
             sameSite: "Strict",
-            maxAge: 24 * 60 * 60 * 1000, 
+            maxAge: 30 * 60 * 1000, // 30 minutes
         });
         res.json({ message: "Logged in successfully", user: { id: user._id, name: user.name, email:user.email } });
     } catch (error) {

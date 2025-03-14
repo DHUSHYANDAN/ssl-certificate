@@ -23,7 +23,7 @@ const Settings = () => {
       setMonth(cronParts[3] || "*");
       setWeekday(cronParts[4] || "*");
     } catch (error) {
-      toast.error("Failed to fetch schedule.");
+      toast.error("your session has expired, please login again");
       console.error(error);
     }
     setLoading(false);
