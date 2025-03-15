@@ -549,7 +549,7 @@ const SSLTable = ({ loading, setLoading }) => {
 
         {/* // JSX for Details Modal */}
         <Modal open={showDetailsModal} onClose={() => setShowDetailsModal(false)}>
-          <Box className="bg-white p-4 w-5/6"
+          <Box className="bg-white p-4  w-5/6"
             sx={{
               position: "absolute",
               top: "50%",
@@ -565,15 +565,16 @@ const SSLTable = ({ loading, setLoading }) => {
               overflowY: "auto",
             }}
           >
-            <Typography variant="h5" fontWeight="bold" gutterBottom>
-              SSL Certificate Details
-            </Typography>
+       { selectedSSL &&     <Typography variant="h5" fontWeight="bold" gutterBottom >
+            <strong>🔗 URL:</strong> {selectedSSL.url}
+            </Typography>}
 
             {selectedSSL && (
               <Box sx={{ mt: 2 }}>
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
-                    <Typography><strong>🔗 URL:</strong> {selectedSSL.url}</Typography>
+                    <Typography sx={{ my: 2 }}>  <span className="text-xl ">SSL Certificate Details</span></Typography>
+            
                     <Typography><strong>📆 Days Remaining:</strong> {selectedSSL.daysRemaining}</Typography>
                   </Grid>
                 </Grid>
