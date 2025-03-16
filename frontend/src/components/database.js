@@ -455,6 +455,15 @@ const SSLTable = ({ loading, setLoading }) => {
           <h1 className="font-bold text-2xl text-center mb-1">
             SSL Certificate Details Monitoring
           </h1>
+           {/* Total no of counts */}
+           <div className="flex justify-between items-center mb-4">
+            <Typography variant="h6" fontWeight="bold">
+              Total SSL Certificates:  <span className="bg-sky-400 text-white font-bold rounded-full px-4 py-2 text-sm shadow-md min-w-[40px] text-center">
+            {sslDetails.length}
+                    </span>
+            </Typography>
+           
+          </div>
           {/* /* 🔍 Search Bar for Global Filtering */}
           <Box sx={{ mb: 2 }} className="absolute right-40 z-10 mr-10 mt-2">
             <TextField
