@@ -1,47 +1,39 @@
-// models/EmailSchedule.js
-const mongoose = require("mongoose");
+const { Sequelize, DataTypes, Model } = require("sequelize");
+const sequelize = require("../db");
+const SSLDetails = require("./URLdb");
 
-const EmailScheduleSchema = new mongoose.Schema({
-  sslId: {
-    type: Number,
-    required: true,
-    ref: "SSLDetails",
-    unique: true
+class EmailSchedule extends Model {}
+EmailSchedule.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    sslId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      unique: true,
+      references: {
+        model: SSLDetails,
+        key: "sslId",
+      },
+    },
+    nextEmailDates: {
+      type: DataTypes.JSON,
+    },
+    emailsSent: {
+      type: DataTypes.JSON,
+    },
+    notificationsEnabled: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+    },
   },
-  nextEmailDates: {
-     Normal: { type: Date },
-    thirtyDays: { type: Date },
-    fifteenDays: { type: Date },
-    tenDays: { type: Date },
-    fiveDays: { type: Date },
-    daily: { type: Date }
-  },
-  emailsSent: {
-    Normal: { type: Boolean, default: false },
-    thirtyDays: { type: Boolean, default: false },
-    fifteenDays: { type: Boolean, default: false },
-    tenDays: { type: Boolean, default: false },
-    fiveDays: { type: Boolean, default: false },
-    dailySentCount: { type: Number, default: 0 }
-  },
-  notificationsEnabled: {
-    type: Boolean,
-    default: true
-  },
-  ssl: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "SSLDetails"
+  {
+    sequelize,
+    modelName: "EmailSchedule",
   }
-}, { timestamps: true });
+);
 
-// Index for efficient querying
-EmailScheduleSchema.index({ 
-  "nextEmailDates.thirtyDays": 1, 
-  "nextEmailDates.fifteenDays": 1,
-  "nextEmailDates.tenDays": 1,
-  "nextEmailDates.fiveDays": 1,
-  "nextEmailDates.daily": 1
-});
-
-const EmailSchedule = mongoose.model("EmailSchedule", EmailScheduleSchema);
 module.exports = EmailSchedule;

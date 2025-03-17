@@ -1,18 +1,28 @@
-// models/Schedule.js
-const mongoose = require("mongoose");
+const { Sequelize, DataTypes, Model } = require("sequelize");
+const sequelize = require("../db");
 
-const TimeScheduleSchema = new mongoose.Schema({
-
-  cronSchedule: { 
-    type: String, 
-    default: "0 6 * * *" 
+class Schedule extends Model {}
+Schedule.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    cronSchedule: {
+      type: DataTypes.STRING,
+      defaultValue: "0 6 * * *",
+    },
+    active: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+    },
   },
-
-  active: {
-    type: Boolean,
-    default: true
+  {
+    sequelize,
+    modelName: "Schedule",
   }
-}, { timestamps: true });
+);
 
-const Schedule = mongoose.model("Schedule", TimeScheduleSchema);
+
 module.exports = Schedule;

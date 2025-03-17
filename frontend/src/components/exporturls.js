@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { FaFilePdf, FaFileExcel } from "react-icons/fa";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 
 const Report = () => {
     const [sslData, setSslData] = useState([]);
@@ -244,11 +244,11 @@ const Report = () => {
                         </thead>
                         <tbody className="text-[14px]">
                             {filteredData.map((ssl, index) => (
-                                <tr key={ssl._id} className="border-b">
+                                <tr key={ssl.sslId} className="border-b">
                                     <td className="p-6">{index + 1}</td>
                                     <td className="p-3">{ssl.url}</td>
-                                    <td className="p-3">{ssl.issuedTo?.commonName || "-"}</td>
-                                    <td className="p-3">{ssl.issuedBy?.commonName || "-"}</td>
+                                    <td className="p-3">{ssl.issuedToCommonName || "-"}</td>
+                                    <td className="p-3">{ssl.issuedByCommonName || "-"}</td>
                                     <td className="p-3">{formatToIST(ssl.validFrom)}</td>
                                     <td className="p-3">{formatToIST(ssl.validTo === "Expired")}</td>
                                     <td className="p-3">{ssl.siteManager || "-"}</td>

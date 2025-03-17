@@ -592,8 +592,8 @@ const SSLTable = ({ loading, setLoading }) => {
 
                 {/* Email Logs Section */}
                 <Typography variant="h6" fontWeight="bold">📩 Email Logs</Typography>
-                {selectedSSL?.emailLogs?.length > 0 ? (
-                  selectedSSL.emailLogs.map((log, index) => (
+                {selectedSSL?.EmailSendLogs?.length > 0 ? (
+                  selectedSSL.EmailSendLogs.map((log, index) => (
                     <Box key={index} sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#f5f5f5", borderRadius: "8px" }}>
                       <Typography><strong>Type:</strong> {log.emailType}</Typography>
                       <Typography><strong>Recipient:</strong> {log.recipient}</Typography>

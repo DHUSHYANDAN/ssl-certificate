@@ -1,47 +1,51 @@
-// models/EmailSendLog.js
-const mongoose = require("mongoose");
+const { Sequelize, DataTypes, Model } = require("sequelize");
+const sequelize = require("../db");
+const SSLDetails = require("./URLdb");
 
-const EmailSendLogSchema = new mongoose.Schema({
-  sslId: {
-    type: Number,
-    required: true,
-    ref: "SSLDetails"
+class EmailSendLog extends Model {}
+EmailSendLog.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    sslId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: SSLDetails,
+        key: "sslId",
+      },
+    },
+    emailType: {
+      type: DataTypes.ENUM("Normal", "30days", "15days", "10days", "5days", "daily"),
+      allowNull: false,
+    },
+    recipient: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    subject: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    sentAt: {
+      type: DataTypes.DATE,
+      defaultValue: Sequelize.NOW,
+    },
+    status: {
+      type: DataTypes.ENUM("success", "failed", "pending"),
+      defaultValue: "pending",
+    },
+    statusMessage: {
+      type: DataTypes.STRING,
+    },
   },
-  emailType: {
-    type: String,
-    required: true,
-    enum: ["Normal","30days", "15days", "10days", "5days", "daily"]
-  },
-  recipient: {
-    type: String,
-    required: true
-  },
-  subject: {
-    type: String,
-    required: true
-  },
-  sentAt: {
-    type: Date,
-    default: Date.now
-  },
-  status: {
-    type: String,
-    enum: ["success", "failed", "pending"],
-    required: true,
-    default: "pending"
-  },
-  statusMessage: {
-    type: String
-  },
-  sslDetails: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "SSLDetails"
+  {
+    sequelize,
+    modelName: "EmailSendLog",
   }
-}, { timestamps: true });
+);
 
-// Index for efficient querying
-EmailSendLogSchema.index({ sslId: 1, emailType: 1 });
-EmailSendLogSchema.index({ sentAt: 1 });
-
-const EmailSendLog = mongoose.model("EmailSendLog", EmailSendLogSchema);
 module.exports = EmailSendLog;
