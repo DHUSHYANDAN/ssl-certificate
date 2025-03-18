@@ -10,6 +10,7 @@ SSLDetails.init(
       primaryKey: true, // Ensure it's the primary key
       autoIncrement: true, // Auto-generate IDs
     },
+    
     url: {
       type: DataTypes.STRING,
       allowNull: false,

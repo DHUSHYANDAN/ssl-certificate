@@ -41,7 +41,7 @@ app.use("/", urlRoutes, userRoutes);
 // Serve React Frontend
 
 app.use(cors());
-const buildPath = path.join(__dirname, "../frontend/build");
+const buildPath = path.join(__dirname, "./build");
 app.use(express.static(buildPath));
 
 app.get("*", (req, res) => {

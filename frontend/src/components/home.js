@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import baseUrl from "../URL";
-import { FaSpinner } from "react-icons/fa";
+import { FaSpinner,FaSearch,FaArrowCircleRight } from "react-icons/fa";
 
 
 const Home = () => {
@@ -62,7 +62,7 @@ const Home = () => {
             setCertificate(data.data);
             toast.success(data.message || "SSL data retrieved!", { autoClose: 2000 });
         } catch (error) {
-            if (error.message === "Socketerror" || error.message === "TLS error") {
+            if (error.message === "Socket error" || error.message === "TLS error") {
                 toast.error("website is not reachable");
             } else if (error.message === "Not authorized, no token") {
                 toast.error("Your session has Expired, Please login");
@@ -119,27 +119,42 @@ const Home = () => {
 
             {/* URL Input Section */}
             <div className="w-full md:w-2/5 bg-gray-700 p-6 opacity-80 rounded shadow-md">
-                <label className="block text-gray-100 text-sm font-bold mb-2">Enter the URL</label>
-                <input
-                    type="text"
-                    value={url}
-                    onChange={handleChange}
-                    className={`w-full p-2 border-2 outline-none focus:border-sky-500 ${isValid ? 'border-gray-300' : 'border-red-500'} rounded mb-1`}
-                    placeholder="Enter website URL"
-                />
-                {!isValid && <p className="text-red-500 font-bold">Enter a valid URL</p>}
+    <label className="block text-gray-100 text-sm font-bold mb-2">Enter the URL</label>
+    
+    <div className="relative w-full">
+    {/* Input Field */}
+    <input
+        type="text"
+        value={url}
+        onKeyDown={(e) => e.key === "Enter" && fetchSSLDetails()}
+        onChange={handleChange}
+        className={`w-full p-2 pl-10 border-2 rounded outline-none transition focus:border-sky-500 ${
+            isValid ? "border-gray-300" : "border-red-500"
+        }`}
+        placeholder="Enter website URL"
+    />
 
-                <button
-                    onClick={fetchSSLDetails}
-                    className="relative inline-flex mt-2 items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-cyan-500 to-blue-500 hover:text-white focus:ring-4 focus:outline-none focus:ring-cyan-200"
-                    disabled={loading}
-                >
-                    <span className="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white  rounded-md group-hover:bg-transparent">
-                        {loading ? <FaSpinner className="animate-spin mr-2 inline" /> : null}
-                        {loading ? "Fetching..." : "Fetch SSL Details"}
-                    </span>
-                </button>
-            </div>
+    {/* Search Icon (Clickable) */}
+    <FaSearch 
+        onClick={fetchSSLDetails}  
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-2xl text-gray-400 cursor-pointer"
+    />
+
+    {/* Left Icon (Shown when not loading) */}
+    {!loading && (
+        <FaArrowCircleRight className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl text-gray-400" />
+    )}
+
+    {/* Loading Spinner (Shown when loading) */}
+    {loading && (
+        <FaSpinner className="absolute left-2 top-1/4  text-2xl text-blue-500 animate-spin" />
+    )}
+</div>
+
+
+    {!isValid && <p className="text-red-500 font-bold">Enter a valid URL</p>}
+</div>
+
 
             {/* SSL Certificate Details */}
             {certificate && (

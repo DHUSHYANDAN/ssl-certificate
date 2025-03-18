@@ -83,12 +83,12 @@ const getAllSSLDetails = async (req, res) => {
   try {
     const sslDetails = await SSLDetails.findAll({
       include: [
-        { model: EmailSchedule, as: "emailSchedule" }, // Use correct alias
+        { model: EmailSchedule, as: "emailSchedule" }, // Ensure alias is correct
         { model: EmailSendLog }
       ],
     });
-    
 
+    // Get the current date in IST (India Standard Time)
     const nowIST = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
     const todayIST = new Date(nowIST);
     todayIST.setHours(0, 0, 0, 0);
@@ -99,25 +99,34 @@ const getAllSSLDetails = async (req, res) => {
       const validToDate = new Date(validToIST);
       validToDate.setHours(0, 0, 0, 0);
 
-    // Calculate days remaining
-    let daysRemaining = Math.ceil((validToDate - todayIST) / (1000 * 60 * 60 * 24));
-    let expiryStatus = Math.ceil((validToDate - todayIST) / (1000 * 60 * 60 * 24))* -1;
-    if (daysRemaining < 0) {
-      daysRemaining = "Expired";
-    }
+      // Calculate days remaining
+      let daysRemaining = Math.ceil((validToDate - todayIST) / (1000 * 60 * 60 * 24));
+      let expiryStatus = daysRemaining * -1;
 
-      let emailsSent = ssl.emailSchedule?.emailsSent ? JSON.parse(ssl.emailSchedule.emailsSent) : {};
+      if (daysRemaining < 0) {
+        daysRemaining = "Expired";
+      }
 
+      // Ensure emailsSent is parsed properly
+      let emailsSent = ssl.emailSchedule?.emailsSent;
+      if (typeof emailsSent === "string") {
+        try {
+          emailsSent = JSON.parse(emailsSent);
+        } catch (err) {
+          emailsSent = {};
+        }
+      } else if (!emailsSent) {
+        emailsSent = {};
+      }
 
-      // Ensure proper boolean values
+      // Construct the notification status object
       const notificationStatus = {
-        NormalSent: emailsSent?.Normal === true,
-
+        NormalSent: !!emailsSent?.Normal, // Ensure it is a boolean
         thirtyDaysSent: !!emailsSent?.thirtyDays,
         fifteenDaysSent: !!emailsSent?.fifteenDays,
         tenDaysSent: !!emailsSent?.tenDays,
         fiveDaysSent: !!emailsSent?.fiveDays,
-        dailyEmailCount: emailsSent?.dailySentCount || 0,
+        dailyEmailCount: emailsSent?.dailyEmailCount || 0, // Use correct key
       };
 
       return {
@@ -135,6 +144,7 @@ const getAllSSLDetails = async (req, res) => {
     res.status(500).json({ message: "Error retrieving SSL details", error: error.message });
   }
 };
+
 
 
 const updateSSLDetails = async (req, res) => {
@@ -156,55 +166,30 @@ const updateSSLDetails = async (req, res) => {
     // Find the associated EmailSchedule record
     const emailSchedule = await EmailSchedule.findOne({ where: { sslId: sslRecord.sslId } });
 
-   
-   
-    // If validTo date changed, update the email schedule
-    if (updateData.validTo) {
-    
-      if (emailSchedule) {
-        const validTo = new Date(updateData.validTo);
-        
-        // Update notification dates
-        emailSchedule.nextEmailDates = {
-          Normal: new Date(validTo.getTime() - (30 * 24 * 60 * 60 * 1000)),
-          thirtyDays: new Date(validTo.getTime() - (30 * 24 * 60 * 60 * 1000)),
-          fifteenDays: new Date(validTo.getTime() - (15 * 24 * 60 * 60 * 1000)),
-          tenDays: new Date(validTo.getTime() - (10 * 24 * 60 * 60 * 1000)),
-          fiveDays: new Date(validTo.getTime() - (5 * 24 * 60 * 60 * 1000)),
-          daily: new Date(validTo.getTime() - (5 * 24 * 60 * 60 * 1000))
-        };
-        
-        // Reset notification status since certificate has been renewed
-        emailSchedule.emailsSent = {
-          Normal: false,
-          thirtyDays: false,
-          fifteenDays: false,
-          tenDays: false,
-          fiveDays: false,
-          dailySentCount: 0
-        };
-        
-        await emailSchedule.save();
-      }
-    }
-     //if any thing updated schedule the email
+    // If any field is updated, update the email schedule
     if (emailSchedule) {
-        let validTo = updateData.validTo ? new Date(updateData.validTo) : new Date(updatedSSL.validTo);
-  
-        // Update notification dates (ensure a valid date is used)
-        emailSchedule.nextEmailDates = {
-          Normal: new Date(validTo.getTime() - (30 * 24 * 60 * 60 * 1000)),
-          thirtyDays: new Date(validTo.getTime() - (30 * 24 * 60 * 60 * 1000)),
-          fifteenDays: new Date(validTo.getTime() - (15 * 24 * 60 * 60 * 1000)),
-          tenDays: new Date(validTo.getTime() - (10 * 24 * 60 * 60 * 1000)),
-          fiveDays: new Date(validTo.getTime() - (5 * 24 * 60 * 60 * 1000)),
-          daily: new Date(validTo.getTime() - (5 * 24 * 60 * 60 * 1000))
-        };}
+      let validTo = updateData.validTo ? new Date(updateData.validTo) : new Date(sslRecord.validTo);
+
+      // Update notification dates
+      emailSchedule.nextEmailDates = {
+        Normal: new Date(validTo.getTime() - 30 * 24 * 60 * 60 * 1000),
+        thirtyDays: new Date(validTo.getTime() - 30 * 24 * 60 * 60 * 1000),
+        fifteenDays: new Date(validTo.getTime() - 15 * 24 * 60 * 60 * 1000),
+        tenDays: new Date(validTo.getTime() - 10 * 24 * 60 * 60 * 1000),
+        fiveDays: new Date(validTo.getTime() - 5 * 24 * 60 * 60 * 1000),
+        daily: new Date(validTo.getTime() - 5 * 24 * 60 * 60 * 1000),
+      };
+
+      await emailSchedule.save(); // Save the updated schedule
+    }
+
     res.status(200).json({ message: "SSL details updated", data: sslRecord });
   } catch (error) {
+    console.error("Error updating SSL details:", error);
     res.status(500).json({ message: "Error updating SSL details", error: error.message });
   }
 };
+
 
 
 const deleteSSLDetails = async (req, res) => {

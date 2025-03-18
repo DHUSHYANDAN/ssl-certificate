@@ -112,20 +112,24 @@ const sendEmailToManager = async (sslData) => {
     const emailSchedule = await EmailSchedule.findOne({ where: { sslId: sslData.sslId } });
 
     if (emailSchedule) {
-      // Ensure emailsSent is always an object
-      let emailsSent = emailSchedule.emailsSent ? JSON.parse(emailSchedule.emailsSent) : {};
-      console.log("emailsSent:", emailsSent);
+      // Ensure emailsSent is always an object before modifying it
+      let emailsSent = typeof emailSchedule.emailsSent === "string" 
+        ? JSON.parse(emailSchedule.emailsSent) 
+        : emailSchedule.emailsSent || {};
       
+      console.log("emailsSent:", emailsSent);
+    
       // Update the NormalSent flag
       emailsSent.Normal = true;
     
       // Save the updated object as a string
       emailSchedule.emailsSent = JSON.stringify(emailsSent);
-      
+    
       // Save changes to the database
       await emailSchedule.save();
       console.log("✅ Successfully updated emailsSent:", emailSchedule.emailsSent);
-    } else {
+    }
+     else {
       console.warn("⚠️ No emailSchedule found for sslId:", sslData.sslId);
     }
     

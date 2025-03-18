@@ -34,36 +34,42 @@ const SSLTable = ({ loading, setLoading }) => {
   const [globalFilter, setGlobalFilter] = useState("");
 
   // 📌 Custom Global Filter Function
-  const filteredData = useMemo(() => {
-    if (!globalFilter) return sslDetails;
+  const processedData = useMemo(() => {
+    if (!sslDetails) return [];
 
-    const lowerCaseFilter = globalFilter.toLowerCase();
+    let data = [...sslDetails];
 
-    return sslDetails.filter((row) => {
-      return Object.values(row).some((value) => {
-        if (!value) return false;
+    // Apply Filtering
+    if (globalFilter) {
+      const lowerCaseFilter = globalFilter.toLowerCase();
 
-        // Convert value to a string for general text search
-        const stringValue = String(value).toLowerCase();
-        if (stringValue.includes(lowerCaseFilter)) return true;
+      data = data.filter((row) => {
+        return Object.values(row).some((value) => {
+          if (!value) return false;
 
-        // Convert numeric values (e.g., daysRemaining) to check
-        if (typeof value === "number" && value.toString().includes(globalFilter)) {
-          return true;
-        }
+          const stringValue = String(value).toLowerCase();
+          if (stringValue.includes(lowerCaseFilter)) return true;
 
-        // Check date values (validFrom, validTo)
-        if (row.validFrom || row.validTo) {
-          const validFrom = new Date(row.validFrom).toLocaleDateString("en-IN");
-          const validTo = new Date(row.validTo).toLocaleDateString("en-IN");
+          if (typeof value === "number" && value.toString().includes(globalFilter)) {
+            return true;
+          }
 
-          return validFrom.includes(globalFilter) || validTo.includes(globalFilter);
-        }
+          if (row.validFrom || row.validTo) {
+            const validFrom = new Date(row.validFrom).toLocaleDateString("en-IN");
+            const validTo = new Date(row.validTo).toLocaleDateString("en-IN");
 
-        return false;
+            return validFrom.includes(globalFilter) || validTo.includes(globalFilter);
+          }
+
+          return false;
+        });
       });
-    });
+    }
+
+    // Apply Sorting (Descending Order of sslId)
+    return data.sort((a, b) => b.sslId - a.sslId);
   }, [globalFilter, sslDetails]);
+
 
 
   const validateManagerName = (siteManager) => {
@@ -235,7 +241,9 @@ const SSLTable = ({ loading, setLoading }) => {
         enableEditing: false,
         enableSorting: false,
         accessorFn: (row) => {
-          const gmtDate = new Date(row.validTo);
+          const validTo = row?.validTo;
+          if (!validTo) return "N/A";
+          const gmtDate = new Date(validTo);
           const istDate = new Date(gmtDate.getTime() + 0 * 60 * 60 * 1000);
           return istDate.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
         },
@@ -397,9 +405,10 @@ const SSLTable = ({ loading, setLoading }) => {
       queryClient.invalidateQueries(["sslDetails"]);
     } catch (error) {
       setLoading(false);
-      console.error("Update failed:", error);
-      toast.error("Failed to update SSL details");
+      console.error("Update failed:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Failed to update SSL details");
     }
+
   };
 
   // Delete is still handled via a custom hook
@@ -455,14 +464,14 @@ const SSLTable = ({ loading, setLoading }) => {
           <h1 className="font-bold text-2xl text-center mb-1">
             SSL Certificate Details Monitoring
           </h1>
-           {/* Total no of counts */}
-           <div className="flex justify-between items-center mb-4">
+          {/* Total no of counts */}
+          <div className="flex justify-between items-center mb-4">
             <Typography variant="h6" fontWeight="bold">
               Total SSL Certificates:  <span className="bg-sky-400 text-white font-bold rounded-full px-4 py-2 text-sm shadow-md min-w-[40px] text-center">
-            {sslDetails.length}
-                    </span>
+                {sslDetails.length}
+              </span>
             </Typography>
-           
+
           </div>
           {/* /* 🔍 Search Bar for Global Filtering */}
           <Box sx={{ mb: 2 }} className="absolute right-40 z-10 mr-10 mt-2">
@@ -490,10 +499,10 @@ const SSLTable = ({ loading, setLoading }) => {
 
           <MaterialReactTable className="h-1/2"
             columns={columns}
-            data={filteredData}
+            data={processedData}
             enableGlobalFilter={false}
             getRowId={(row) => row.sslId}
-           
+
             muiTableBodyRowProps={({ row }) => ({
 
               sx: {
@@ -501,7 +510,7 @@ const SSLTable = ({ loading, setLoading }) => {
                 backgroundColor: row.index % 2 ? "" : "#ffffff",
                 "&:hover": {
                   backgroundColor: "oklch(0.951 0.046 236.824)",
-                 
+
                 },
               },
 
@@ -574,8 +583,8 @@ const SSLTable = ({ loading, setLoading }) => {
               overflowY: "auto",
             }}
           >
-       { selectedSSL &&     <Typography variant="h5" fontWeight="bold" gutterBottom >
-            <strong>🔗 URL:</strong> {selectedSSL.url}
+            {selectedSSL && <Typography variant="h5" fontWeight="bold" gutterBottom >
+              <strong>🔗 URL:</strong> {selectedSSL.url}
             </Typography>}
 
             {selectedSSL && (
@@ -583,7 +592,7 @@ const SSLTable = ({ loading, setLoading }) => {
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
                     <Typography sx={{ my: 2 }}>  <span className="text-xl ">SSL Certificate Details</span></Typography>
-            
+
                     <Typography><strong>📆 Days Remaining:</strong> {selectedSSL.daysRemaining}</Typography>
                   </Grid>
                 </Grid>
@@ -628,10 +637,29 @@ const SSLTable = ({ loading, setLoading }) => {
                 <Typography variant="h6" fontWeight="bold">🔔 Notification Status</Typography>
                 <Box sx={{ ml: 2, mt: 1, p: 2, bgcolor: "#f3e5f5", borderRadius: "8px" }}>
                   <Typography><strong>Normal Email Sent:</strong>   {selectedSSL?.notificationStatus?.NormalSent ? "✅ " : "❌ "}</Typography>
+                  <Typography>
+                    <strong>30 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.thirtyDaysSent ? "✅ " : "❌ "}
+                    {selectedSSL?.EmailSendLogs?.find(log => log.emailType === '30days')?.sentAt && (
+                      <>
+                        <strong className="text-sm"> Sent At:</strong>
+                        {new Date(selectedSSL.EmailSendLogs.find(log => log.emailType === '30days').sentAt).toLocaleString('en-US', {
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: 'numeric',
+                          second: 'numeric',
+                        })}
+                      </>
+                    )}
+                  </Typography>
 
-                  <Typography><strong>30 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.thirtyDaysSent ? "✅ " : "❌ "}  {selectedSSL?.emailLogs?.find(log => log.emailType === '30days')?.sentAt && (
+
+
+
+                  <Typography><strong>15 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.fifteenDaysSent ? "✅ " : "❌ "} {selectedSSL?.EmailSendLogs?.find(log => log.emailType === '15days')?.sentAt && (
                     <>
-                      <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL.emailLogs.find(log => log.emailType === '30days').sentAt).toLocaleString('en-US', {
+                      <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL?.EmailSendLogs?.find(log => log.emailType === '15days').sentAt).toLocaleString('en-US', {
                         month: 'long',
                         day: 'numeric',
                         year: 'numeric',
@@ -641,21 +669,9 @@ const SSLTable = ({ loading, setLoading }) => {
                       })}
                     </>
                   )}</Typography>
-                  <Typography><strong>15 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.fifteenDaysSent ? "✅ " : "❌ "} {selectedSSL?.emailLogs?.find(log => log.emailType === '15days')?.sentAt && (
+                  <Typography><strong>10 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.tenDaysSent ? "✅ " : "❌ "} {selectedSSL?.EmailSendLogs?.find(log => log.emailType === '10days')?.sentAt && (
                     <>
-                      <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL.emailLogs.find(log => log.emailType === '15days').sentAt).toLocaleString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: 'numeric',
-                        minute: 'numeric',
-                        second: 'numeric',
-                      })}
-                    </>
-                  )}</Typography>
-                  <Typography><strong>10 Days Email Sent:</strong> {selectedSSL?.notificationStatus?.tenDaysSent ? "✅ " : "❌ "} {selectedSSL?.emailLogs?.find(log => log.emailType === '10days')?.sentAt && (
-                    <>
-                      <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL.emailLogs.find(log => log.emailType === '10days').sentAt).toLocaleString('en-US', {
+                      <strong className="text-sm"> Sent At:</strong> {new Date(selectedSSL?.EmailSendLogs?.find(log => log.emailType === '10days').sentAt).toLocaleString('en-US', {
                         month: 'long',
                         day: 'numeric',
                         year: 'numeric',

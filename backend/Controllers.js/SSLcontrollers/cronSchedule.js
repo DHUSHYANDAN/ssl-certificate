@@ -3,8 +3,9 @@ const net = require("net");
 const cron = require("node-cron");
 const nodemailer = require("nodemailer");
 const { SSLDetails, EmailSendLog, EmailSchedule } = require("../../models/associations");
-const  Schedule  = require("../../models/schedule");
+const Schedule = require("../../models/schedule");
 require("dotenv").config();
+const Sequelize = require("sequelize");
 
 let cronJob;
 
@@ -47,6 +48,8 @@ const getCronSchedule = async (req, res) => {
 };
 
 const sendEmailAlert = async (ssl, daysLeft, emailType) => {
+  console.log("Sending email alert for", ssl.url);
+
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
@@ -56,13 +59,13 @@ const sendEmailAlert = async (ssl, daysLeft, emailType) => {
     from: process.env.EMAIL_USER,
     to: ssl.email,
     subject: `Urgent: SSL Certificate Expiry Notification for ${ssl.url}`,
-      html: `
+    html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px;">
           <h2 style="color: #d32f2f;">⚠️ SSL Certificate Expiry Notice</h2>
           
           <p>Dear ${ssl.siteManager},</p>
   
-          <p>We would like to bring to your attention that the SSL certificate for <strong>${ssl.url}</strong> is set to expire soon.</p>
+          <p>We would like to bring to your attention that the SSL certificate for <strong>${ssl.url}</strong> is set to expire soon or has already expired.</p>
   
           <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
             <tr>
@@ -71,11 +74,11 @@ const sendEmailAlert = async (ssl, daysLeft, emailType) => {
             </tr>
             <tr>
               <td style="padding: 8px; border: 1px solid #ddd;"><strong>Issued To:</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">${ssl.issuedTo.commonName} (${ssl.issuedTo.organization})</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${ssl.issuedToCommonName} (${ssl.issuedToOrganization})</td>
             </tr>
             <tr>
               <td style="padding: 8px; border: 1px solid #ddd;"><strong>Issued By:</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">${ssl.issuedBy.commonName} (${ssl.issuedBy.organization})</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${ssl.issuedByCommonName} (${ssl.issuedByOrganization})</td>
             </tr>
             <tr>
               <td style="padding: 8px; border: 1px solid #ddd;"><strong>Valid From:</strong></td>
@@ -83,7 +86,10 @@ const sendEmailAlert = async (ssl, daysLeft, emailType) => {
             </tr>
             <tr>
               <td style="padding: 8px; border: 1px solid #ddd;"><strong>Valid To:</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd; color: #d32f2f;"><strong>${ssl.validTo} (${daysLeft} days remaining)</strong></td>
+            <td style="padding: 8px; border: 1px solid #ddd; color: #d32f2f;">
+    <strong>${ssl.validTo} (${daysLeft < 0 ? "Expired" : `${daysLeft} days remaining`})</strong>
+</td>
+
             </tr>
           </table>
   
@@ -95,111 +101,161 @@ const sendEmailAlert = async (ssl, daysLeft, emailType) => {
           <p><strong>Your IT Security Team</strong></p>
         </div>
       `,
-    };
+  };
 
   try {
     await transporter.sendMail(mailOptions);
-    await EmailSendLog.create({ sslId: ssl.id, emailType, recipient: ssl.email, status: "success" });
+    await EmailSendLog.create({ sslId: ssl.sslId, emailType, subject: `Urgent: SSL Certificate Expiry Notification for ${ssl.url}`, recipient: ssl.email, status: "success" });
     return true;
   } catch (error) {
-    await EmailSendLog.create({ sslId: ssl.id, emailType, recipient: ssl.email, status: "failed", statusMessage: error.message });
+    await EmailSendLog.create({ sslId: ssl.sslId, emailType, recipient: ssl.email, status: "failed", statusMessage: error.message });
     return false;
   }
 };
 
+
+//here i need a cron schedule to send email alerts it will first fetch the details from the tls socket that are where stored in the database and then send the email alerts to the respective email addresses. check the email type and send the email alerts accordingly.set the emailsend means the notification is true according to the email type and then send the email alerts accordingly.
+
+
 const scheduleCronJob = async () => {
   try {
-    if (cronJob) cronJob.stop();
+    if (cronJob) {
+      console.log("Stopping previous cron job...");
+      cronJob.stop();
+    }
+
     const scheduleData = await Schedule.findOne({ where: { active: true } });
     let cronSchedule = scheduleData ? scheduleData.cronSchedule : "0 6 * * *";
 
+    if (!cronSchedule || typeof cronSchedule !== "string") {
+      console.error("Invalid cron schedule found in database, using default.");
+      cronSchedule = "0 6 * * *";
+    }
+
+    cronSchedule = cronSchedule.trim();
+
     cronJob = cron.schedule(cronSchedule, async () => {
-      console.log(`Fetching all stored SSL details...`);
+      console.log(`🚀 Fetching all stored SSL details...`);
       const sslDetails = await SSLDetails.findAll();
+      console.log(`Fetched ${sslDetails.length} SSL details.`);
 
       for (const ssl of sslDetails) {
-        try {
-          const parsedUrl = new URL(ssl.url);
-          const host = parsedUrl.hostname;
-          const socket = net.connect(443, host, () => {
-            const secureSocket = tls.connect(
-              { socket, servername: host, rejectUnauthorized: false },
-              async () => {
-                const certificate = secureSocket.getPeerCertificate();
-                if (!certificate || Object.keys(certificate).length === 0) return;
-
-                await SSLDetails.update({
-                  issuedTo: certificate.subject?.CN || "Unknown",
-                  issuedBy: certificate.issuer?.CN || "Unknown",
-                  validFrom: certificate.valid_from,
-                  validTo: certificate.valid_to,
-                }, { where: { url: ssl.url } });
-
-                secureSocket.end();
-                socket.end();
+        const parsedUrl = new URL(ssl.url);
+        const host = parsedUrl.hostname;
+        const socket = net.connect(443, host, () => {
+          const secureSocket = tls.connect(
+            { socket, servername: host, rejectUnauthorized: false },
+            async () => {
+              const certificate = secureSocket.getPeerCertificate();
+              if (!certificate || Object.keys(certificate).length === 0) {
+                console.error(`No SSL certificate found for ${ssl.url}`);
+                return;
               }
-            );
-            secureSocket.on("error", (err) => console.error(`TLS error for ${ssl.url}:`, err.message));
-          });
-          socket.on("error", (err) => console.error(`Socket connection error for ${ssl.url}:`, err.message));
-        } catch (error) {
-          console.error(`Error updating SSL details for ${ssl.url}:`, error.message);
-        }
+
+              const validFrom = new Date(certificate.valid_from);
+              const validTo = new Date(certificate.valid_to);
+              const sslData = {
+                issuedToCommonName: certificate.subject?.CN || "Unknown",
+                issuedToOrganization: certificate.subject?.O || "Unknown",
+                issuedByCommonName: certificate.issuer?.CN || "Unknown",
+                issuedByOrganization: certificate.issuer?.O || "Unknown",
+                validFrom,
+                validTo,
+              };
+
+              await SSLDetails.upsert(
+                {
+                  url: ssl.url,  // ✅ Ensure the URL is included
+                  issuedToCommonName: certificate.subject?.CN || "Unknown",
+                  issuedToOrganization: certificate.subject?.O || "Unknown",
+                  issuedByCommonName: certificate.issuer?.CN || "Unknown",
+                  issuedByOrganization: certificate.issuer?.O || "Unknown",
+                  validFrom,
+                  validTo,
+                },
+                { where: { url: ssl.url } }
+              );
+
+              console.log(`✅ Updated SSL details for ${ssl.url}`);
+              secureSocket.end();
+              socket.end();
+            }
+          );
+
+          secureSocket.on("error", (err) =>
+            console.error(`TLS error for ${ssl.url}:`, err.message)
+          );
+        });
+
+        socket.on("error", (err) =>
+          console.error(`Socket connection error for ${ssl.url}:`, err.message)
+        );
       }
 
-      console.log("Running SSL expiry check...");
-      const sslDetailsList = await SSLDetails.findAll();
-      
-      for (const ssl of sslDetailsList) {
-        const validToDate = new Date(ssl.validTo);
-        if (isNaN(validToDate.getTime())) {
-          console.error(`Invalid date format for ${ssl.url}: ${ssl.validTo}`);
-          continue; // Skip if date is invalid
+      console.log(`🔄 Running SSL expiry check with cron time: ${cronSchedule}`);
+      console.log("🚀 Running SSL expiry check...");
+
+      try {
+        const sslDetails = await SSLDetails.findAll();
+        for (const ssl of sslDetails) {
+          const daysRemaining = Math.ceil((ssl.validTo - new Date()) / (24 * 60 * 60 * 1000));
+          const emailSchedule = await EmailSchedule.findOne({ where: { sslId: ssl.sslId } });
+
+          if (emailSchedule) {
+            let emailsSent = emailSchedule.emailsSent ? JSON.parse(emailSchedule.emailsSent) : {};
+
+            if (daysRemaining <= 31 && !emailsSent.thirtyDays) {
+              await sendEmailAlert(ssl, daysRemaining, "30days");
+              emailsSent.thirtyDays = true;
+            }
+
+            if (daysRemaining <= 15 && !emailsSent.fifteenDays) {
+              await sendEmailAlert(ssl, daysRemaining, "15days");
+              emailsSent.fifteenDays = true;
+            }
+
+            if (daysRemaining <= 10 && !emailsSent.tenDays) {
+              await sendEmailAlert(ssl, daysRemaining, "10days");
+              emailsSent.tenDays = true;
+            }
+
+            if (daysRemaining <= 5 && !emailsSent.fiveDays) {
+              await sendEmailAlert(ssl, daysRemaining, "5days");
+              emailsSent.fiveDays = true;
+            }
+
+            if (daysRemaining <= 5) {
+              if (!emailsSent.dailyEmailCount) {
+                emailsSent.dailyEmailCount = 0;
+              }
+
+              await sendEmailAlert(ssl, daysRemaining, "daily");
+
+              // Increment the count
+              emailsSent.dailyEmailCount += 1;
+
+              // Ensure the update is saved in the database
+              await EmailSchedule.update(
+                { emailsSent }, // Update field
+                { where: { sslId: ssl.sslId } } // Condition
+              );
+            }
+
+
+            await EmailSchedule.update(
+              { emailsSent: JSON.stringify(emailsSent) },
+              { where: { sslId: ssl.sslId } }
+            );
+          }
         }
-      
-        const daysRemaining = Math.floor((validToDate - new Date()) / (1000 * 60 * 60 * 24));
-        console.log(`Checking SSL expiry for ${ssl.url}: ${daysRemaining} days remaining`);
-      
-        const emailSchedule = await EmailSchedule.findOne({ where: { sslId: ssl.sslId } });
-        
-        if (!emailSchedule) {
-          console.log(`No email schedule found for ${ssl.url}, skipping...`);
-          continue;
-        }
-      
-        if (daysRemaining <= 30 && !emailSchedule.emailsSent.thirtyDays) {
-          console.log(`✅ Triggering 30-day email for ${ssl.url}`);
-          await sendEmailAlert(ssl, daysRemaining, "30days");
-          emailSchedule.emailsSent.thirtyDays = true;
-        }
-        if (daysRemaining <= 15 && !emailSchedule.emailsSent.fifteenDays) {
-          console.log(`✅ Triggering 15-day email for ${ssl.url}`);
-          await sendEmailAlert(ssl, daysRemaining, "15days");
-          emailSchedule.emailsSent.fifteenDays = true;
-        }
-        if (daysRemaining <= 10 && !emailSchedule.emailsSent.tenDays) {
-          console.log(`✅ Triggering 10-day email for ${ssl.url}`);
-          await sendEmailAlert(ssl, daysRemaining, "10days");
-          emailSchedule.emailsSent.tenDays = true;
-        }
-        if (daysRemaining <= 5 && !emailSchedule.emailsSent.fiveDays) {
-          console.log(`✅ Triggering 5-day email for ${ssl.url}`);
-          await sendEmailAlert(ssl, daysRemaining, "5days");
-          emailSchedule.emailsSent.fiveDays = true;
-        }
-        if (daysRemaining <= 5) {
-          console.log(`✅ Triggering daily email for ${ssl.url}`);
-          await sendEmailAlert(ssl, daysRemaining, "daily");
-          emailSchedule.emailsSent.dailySentCount += 1;
-        }
-      
-        await emailSchedule.save();
+        console.log("✅ SSL expiry check completed.");
+      } catch (error) {
+        console.error("Error during SSL expiry check:", error);
       }
-      
-      console.log("SSL expiry check completed.");
-      
-      
-    }, { scheduled: true, timezone: "Asia/Kolkata" });
+    }, {
+      scheduled: true,
+      timezone: "Asia/Kolkata"
+    });
 
     cronJob.start();
   } catch (error) {
@@ -208,5 +264,7 @@ const scheduleCronJob = async () => {
 };
 
 scheduleCronJob();
+
+
 
 module.exports = { updateCronSchedule, getCronSchedule };
