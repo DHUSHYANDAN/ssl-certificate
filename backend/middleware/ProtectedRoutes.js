@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const protect = async (req, res, next) => {
     try {
         const token = req.cookies.jwt;
-        if (!token) return res.status(401).json({ message: "Not authorized, no token" });
+        if (!token) return res.status(401).json({ message: "Not authorized, Invalid user" });
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findByPk(decoded.id, { attributes: { exclude: ["password"] } });

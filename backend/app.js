@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
 const urlRoutes = require("./routes/SSLroute");
 const userRoutes = require("./routes/userLogin");
 require("dotenv").config();
@@ -38,10 +39,23 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/", urlRoutes, userRoutes);
 
+
+// Correct path to "images" folder (outside backend)
+const uploadDir = path.join(__dirname, "../images");
+
+// Ensure the images folder exists
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Serve images statically
+app.use("/images", express.static(uploadDir));
+
+
 // Serve React Frontend
 
 app.use(cors());
-const buildPath = path.join(__dirname, "./build");
+const buildPath = path.join(__dirname, "../frontend/build");
 app.use(express.static(buildPath));
 
 app.get("*", (req, res) => {

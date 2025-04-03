@@ -26,9 +26,107 @@ import baseUrl from "../URL";
 import { TextField, InputAdornment } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 // import { useMaterialReactTable } from 'material-react-table';
+// Fetch SSL Details remains unchanged using react-query
 
+
+const useGetSSLDetails = () =>
+  useQuery({
+    queryKey: ["sslDetails"],
+    queryFn: async () => {
+      const { data } = await axios.get(`${baseUrl}/all-ssl`, {
+        withCredentials: true,
+      });
+      return data.data;
+    },
+  });
+
+
+
+// Delete SSL Entry with Toast Notification using a custom hook
+const useDeleteSSL = (setLoading) => {
+  const queryClient = useQueryClient();
+
+  return async (sslId) => {
+    if (!sslId) {
+      toast.error("SSL ID is required!");
+      throw new Error("SSL ID is required");
+    }
+
+    setLoading(true);
+    try {
+      const response = await axios.delete(`${baseUrl}/ssl-delete`, {
+        data: { sslId },
+        withCredentials: true,
+      });
+
+      if (response.status === 200) {
+        toast.success("Deleted successfully!", { autoClose: 2000 });
+        await queryClient.invalidateQueries({ queryKey: ["sslDetails"] });
+      }
+    } catch (error) {
+      console.log("Failed to delete SSL:", error, sslId);
+
+      console.error("Failed to delete SSL:", error?.response?.data?.message || error.message);
+
+      // Show user-friendly error messages
+      const errorMessage =
+        error?.response?.data?.message || "Something went wrong while deleting SSL.";
+
+      toast.error(errorMessage);
+    } finally {
+      setTimeout(() => {
+        setLoading(false);
+      }, 2000);
+    }
+  };
+};
+
+
+// Query Client Provider
+const queryClient = new QueryClient();
+
+export default function App() {
+  const [loading, setLoading] = useState(false);
+  return (
+    <QueryClientProvider client={queryClient}>
+      <SSLTable loading={loading} setLoading={setLoading} />
+      <ToastContainer position="top-right" autoClose={2000} />
+    </QueryClientProvider>
+  );
+}
 const SSLTable = ({ loading, setLoading }) => {
+
+
+  // const { sslDetails, setsslDetails } = useState([])
+  // const {isLoading, setisLoading } = useState(false)
+
+
   const { data: sslDetails = [], isLoading } = useGetSSLDetails();
+
+  // useEffect(() => {
+  //   fetchdata()
+  // }, [])
+
+
+  //   const fetchdata =()=>{
+  //     const res = axios.get(`${baseUrl}/all-ssl`,{
+  //       withCredentials: true,
+  //     })
+  //     .then((response) => {
+  //       // setsslDetails(response.data)
+  //       console.log(response.data.data)
+  //       })
+  //       .catch((error) => {
+  //         console.error(error);
+  //         });
+  //   }
+
+
+
+  //   useEffect(() => {
+  //     const demo = useGetSSLDetails()
+
+  // }, [])
 
   // 🔍 Global Search State
   const [globalFilter, setGlobalFilter] = useState("");
@@ -154,6 +252,7 @@ const SSLTable = ({ loading, setLoading }) => {
 
   useEffect(() => {
     fetchCronSchedule();
+
   }, []);
 
 
@@ -183,7 +282,9 @@ const SSLTable = ({ loading, setLoading }) => {
         accessorKey: "url",
         header: "URL",
         size: 200,
+        enableClickToCopy: true,
         enableEditing: false, // read-only
+
       },
       {
         accessorKey: "issuedTo.commonName",
@@ -298,10 +399,40 @@ const SSLTable = ({ loading, setLoading }) => {
       },
 
       {
+        accessorKey: "image_url",
+        header: "Image",
+        enableEditing: false,
+        size: 100,
+        Cell: ({ cell }) => {
+          const imageUrl = cell.getValue();
+          if (!imageUrl) {
+            return <i style={{ color: "red" }}>⚠️upload Image</i>;
+          }
+
+          return (
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <img
+                src={`${baseUrl}${imageUrl}?t=${Date.now()}`} // Force browser to get the latest image
+                alt="Site_image"
+                style={{
+                  width: "60px",
+                  height: "60px",
+                  borderRadius: "30px",
+                  objectFit: "cover",
+                }}
+              />
+
+            </div>
+          );
+        },
+      }
+
+      ,
+
+      {
         accessorKey: "siteManager",
         header: "Site Manager",
 
-        enableEditing: true,
         Cell: ({ cell }) => {
           const name = cell.getValue();
           return name.trim() !== "" ? name : <i style={{ color: "red" }}>⚠️ name is required</i>;
@@ -358,6 +489,7 @@ const SSLTable = ({ loading, setLoading }) => {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editSSL, setEditSSL] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
@@ -410,6 +542,55 @@ const SSLTable = ({ loading, setLoading }) => {
     }
 
   };
+  //for image
+
+  const uploadSSLImage = async () => {
+    const { file } = editSSL;
+  
+    if (!editSSL.url) {
+      toast.error("URL is missing. Please provide a valid URL before uploading.");
+      return;
+    }
+  
+    const formData = new FormData();
+    formData.append("url", editSSL.url);
+    formData.append("file", file);
+  
+    try {
+      const response = await axios.put(`${baseUrl}/ssl-update`, formData, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+  
+      console.log("Upload Success:", response.data);
+      toast.success("Image updated successfully!", { autoClose: 2000 });
+  
+      // Ensure backend sends updated image URL
+      // if (response.data.image_url) {
+      //   // Update state with new image URL
+      //   setEditSSL((prev) => ({
+      //     ...prev,
+      //     image_url: response.data.image_url,
+      //   }));
+  
+      //   // Manually update query cache to reflect changes in the table
+      //   queryClient.setQueryData(["sslDetails"], (oldData) => {
+      //     if (!oldData) return oldData; // Handle case when oldData is undefined
+      //     return oldData.map((item) =>
+      //       item.url === editSSL.url ? { ...item, image_url: response.data.image_url } : item
+      //     );
+      //   });
+  
+      //   // Invalidate query to refetch updated data
+      //   queryClient.invalidateQueries(["sslDetails"]);
+      // }
+    } catch (error) {
+      console.error("Image upload failed:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Failed to upload image.");
+    }
+  };
+  
+  
 
   // Delete is still handled via a custom hook
   const deleteSSL = useDeleteSSL(setLoading);
@@ -468,7 +649,7 @@ const SSLTable = ({ loading, setLoading }) => {
           <div className="flex justify-between items-center mb-4">
             <Typography variant="h6" fontWeight="bold">
               Total SSL Certificates:  <span className="bg-sky-400 text-white font-bold rounded-full px-4 py-2 text-sm shadow-md min-w-[40px] text-center">
-                {sslDetails.length}
+                {/* {sslDetails.length} */}
               </span>
             </Typography>
 
@@ -773,8 +954,125 @@ const SSLTable = ({ loading, setLoading }) => {
               onChange={(e) => setEditSSL({ ...editSSL, email: e.target.value })}
               margin="normal"
             />
+            <Box
+              sx={{
+                mt: 3,
+                p: 3,
+                borderRadius: "12px",
+                backgroundColor: "#f9f9f9",
+                boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.1)",
+                textAlign: "",
+              }}
+            >
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold", color: "#333" }}>
+                Upload siteManager or URL Image
+              </Typography>
 
-            {/* Buttons Section */}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    setSelectedFile(file);
+                    setEditSSL((prev) => ({
+                      ...prev,
+                      file,
+                      url: prev.url || "default-url", // Ensure URL is not undefined
+                    }));
+                  }
+                }}
+                style={{ display: "none" }}
+                id="upload-image-input"
+              />
+
+              <label htmlFor="upload-image-input">
+                <Button
+                  variant="contained"
+                  component="span"
+                  sx={{
+                    backgroundColor: "#1976d2",
+                    color: "white",
+                    fontWeight: "bold",
+                    px: 3,
+                    py: 1.5,
+                    borderRadius: "8px",
+                    textTransform: "none",
+                    "&:hover": {
+                      backgroundColor: "#1565c0",
+                    },
+                  }}
+                >
+                  🔍 Choose Image
+                </Button>
+              </label>
+
+              {selectedFile && (
+                <Box sx={{ mt: 1 }}>
+                  {/* Selected File Name */}
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "gray",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    Selected: {selectedFile.name}
+                  </Typography>
+
+                  {/* Image Preview */}
+                  <Box
+                    sx={{
+                      mt: 2,
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      width: "250px",
+                      height: "200px",
+                      border: "2px solid #ddd",
+                      backgroundColor: "#fff",
+                    }}
+                  >
+                    <img
+                      src={URL.createObjectURL(selectedFile)}
+                      alt="Preview"
+                      className="justify-center"
+                      style={{
+
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  </Box>
+
+                  {/* Show Upload Button Only After Selecting an Image */}
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={uploadSSLImage}
+                    sx={{
+                      mt: 3,
+                      backgroundColor: "#1976d2",
+                      fontWeight: "bold",
+                      textTransform: "none",
+                      borderRadius: "8px",
+                      px: 3,
+                      py: 1.5,
+                      "&:hover": {
+                        backgroundColor: "#1565c0",
+                      },
+                    }}
+                  >
+                    📤 Upload Image
+                  </Button>
+                </Box>
+              )}
+            </Box>
+
+
             <Box
               sx={{
                 mt: 3,
@@ -861,69 +1159,3 @@ const SSLTable = ({ loading, setLoading }) => {
   );
 };
 
-// Fetch SSL Details remains unchanged using react-query
-
-
-const useGetSSLDetails = () =>
-  useQuery({
-    queryKey: ["sslDetails"],
-    queryFn: async () => {
-      const { data } = await axios.get(`${baseUrl}/all-ssl`, {
-        withCredentials: true,
-      });
-      return data.data;
-    },
-  });
-
-// Delete SSL Entry with Toast Notification using a custom hook
-const useDeleteSSL = (setLoading) => {
-  const queryClient = useQueryClient();
-
-  return async (sslId) => {
-    if (!sslId) {
-      toast.error("SSL ID is required!");
-      throw new Error("SSL ID is required");
-    }
-
-    setLoading(true);
-    try {
-      const response = await axios.delete(`${baseUrl}/ssl-delete`, {
-        data: { sslId },
-        withCredentials: true,
-      });
-
-      if (response.status === 200) {
-        toast.success("Deleted successfully!", { autoClose: 2000 });
-        await queryClient.invalidateQueries({ queryKey: ["sslDetails"] });
-      }
-    } catch (error) {
-      console.log("Failed to delete SSL:", error, sslId);
-
-      console.error("Failed to delete SSL:", error?.response?.data?.message || error.message);
-
-      // Show user-friendly error messages
-      const errorMessage =
-        error?.response?.data?.message || "Something went wrong while deleting SSL.";
-
-      toast.error(errorMessage);
-    } finally {
-      setTimeout(() => {
-        setLoading(false);
-      }, 2000);
-    }
-  };
-};
-
-
-// Query Client Provider
-const queryClient = new QueryClient();
-
-export default function App() {
-  const [loading, setLoading] = useState(false);
-  return (
-    <QueryClientProvider client={queryClient}>
-      <SSLTable loading={loading} setLoading={setLoading} />
-      <ToastContainer position="top-right" autoClose={2000} />
-    </QueryClientProvider>
-  );
-}
