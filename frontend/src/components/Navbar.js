@@ -80,7 +80,7 @@ const Navbars = () => {
           <Link to="/home" className="flex items-center space-x-3">
             <img src="./ZigmaImage.png" className="h-14" alt="Logo" />
             <span className="text-lg font-semibold">
-              {user ? `Welcome, ${user.name}!` : ""}
+            {user ? `Welcome, ${user.name.length > 10 ? user.name.substring(0, 10) + "..." : user.name}!` : ""}
             </span>
           </Link>
 

@@ -90,10 +90,27 @@ const updateUser = async (req, res) => {
     }
 };
 
+//delete user
+
+const deleteUser = async (req, res) => {
+    const { email } = req.body;
+    try {
+        const user = await User.findOne({ where: { email } });
+        if (!user) return res.status(404).json({ message: "User not found"
+            });
+            await User.destroy({ where: { email } });
+            res.json({ message: "User deleted successfully" });
+            } catch (error) {
+                console.error("Error in deleting user:", error);
+                res.status(500).json({ error: "Error in deleting user" });
+                }
+                };
+
+
 // Logout User
 const logoutUser = (req, res) => {
     res.clearCookie("jwt");
     res.json({ message: "Logged out successfully" });
 };
 
-module.exports = { registerUser, loginUser, logoutUser, updateUser };
+module.exports = { registerUser, loginUser, logoutUser, updateUser ,deleteUser};
