@@ -11,6 +11,7 @@ const cookieParser = require("cookie-parser");
 const sequelize = require("./db");
 require("./models/associations"); 
 const Schedule = require("./models/schedule");
+const protect = require("./middleware/ProtectedRoutes");
 
 // Sync the database
 sequelize.sync({ alter: true })
@@ -49,7 +50,7 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 // Serve images statically
-app.use("/images", express.static(uploadDir));
+app.use("/images",protect, express.static(uploadDir));
 
 
 // Serve React Frontend

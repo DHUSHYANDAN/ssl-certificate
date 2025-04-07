@@ -649,7 +649,7 @@ const SSLTable = ({ loading, setLoading }) => {
           <div className="flex justify-between items-center mb-4">
             <Typography variant="h6" fontWeight="bold">
               Total SSL Certificates:  <span className="bg-sky-400 text-white font-bold rounded-full px-4 py-2 text-sm shadow-md min-w-[40px] text-center">
-                {/* {sslDetails.length} */}
+                {sslDetails.length}
               </span>
             </Typography>
 
@@ -774,7 +774,7 @@ const SSLTable = ({ loading, setLoading }) => {
                   <Grid item xs={12}>
                     <Typography sx={{ my: 2 }}>  <span className="text-xl ">SSL Certificate Details</span></Typography>
 
-                    <Typography><strong>📆 Days Remaining:</strong> {selectedSSL.daysRemaining}</Typography>
+                    <Typography><strong>📆 Days Remaining:</strong> {selectedSSL.daysRemaining>0 ?selectedSSL.daysRemaining :selectedSSL.expiryStatus}</Typography>
                   </Grid>
                 </Grid>
 

@@ -39,7 +39,7 @@ const SignIn = () => {
                 { email, password },
                 { withCredentials: true }
             );
-            toast.success("Login successful!");
+            toast("Login successful!");
             setLoading(true);
             setTimeout(() => {
                 navigate('/home'); 

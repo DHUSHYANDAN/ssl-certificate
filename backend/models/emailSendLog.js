@@ -24,7 +24,7 @@ EmailSendLog.init(
     },
     recipient: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: false
     },
     subject: {
       type: DataTypes.STRING,

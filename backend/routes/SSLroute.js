@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 
-const { checkAndFetchSSL,getAllSSLDetails,updateSSLDetails,upload,deleteSSLDetails} = require("../Controllers.js/SSLcontrollers/sslDetails");
+const { checkAndFetchSSL,getAllSSLDetails,updateSSLDetails,upload,deleteSSLDetails, bulkSSLFetch} = require("../Controllers.js/SSLcontrollers/sslDetails");
 
 const { storeManagerAndSendMail}= require("../Controllers.js/SSLcontrollers/sslmails");
 
@@ -14,9 +14,6 @@ router.post("/mail-to-sitemanager", protect, storeManagerAndSendMail);
 router.get("/all-ssl", protect, getAllSSLDetails);
 
 router.put("/ssl-update", protect, (req, res, next) => {
-
-console.log(req,"hiii i am your req")
-
 
     upload.single("file")(req, res, (err) => {
       if (err) {
@@ -38,7 +35,7 @@ router.delete("/ssl-delete", protect, deleteSSLDetails);
 router.put("/cron-update", protect, updateCronSchedule);
 router.get("/cron-schedule", protect, getCronSchedule);
 
-
+router.post("/bulk-fetch-ssl", protect, bulkSSLFetch);
 
 
 module.exports = router;

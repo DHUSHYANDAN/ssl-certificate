@@ -105,14 +105,62 @@ const Signup = () => {
 
     // Validate all fields on submit
     const validateForm = () => {
-       
+        let formErrors = {};
+
+        Object.keys(formData).forEach((key) => {
+            validateField(key, formData[key]);
+        });
+
+        Object.keys(formData).forEach((key) => {
+            if (!formData[key].trim()) {
+                formErrors[key] = `${key.charAt(0).toUpperCase() + key.slice(1)} is required`;
+            }
+        });
+
+        setErrors(formErrors);
+        return Object.keys(formErrors).length === 0;
     };
 
     // Handle form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-       
+        if (!validateForm()) {
+            return; 
+        }
+
+        if (passwordStrength === 'weak') {
+            toast.error('Please enter a stronger password!');
+            return;
+        }
+
+        try {
+            const response = await axios.post(`${baseurl}/register`, {
+            name: formData.name,
+            email: formData.email,
+            password: formData.password
+            }, { withCredentials: true });
+
+            toast.success(response.data.message);
+           
+            setFormData({ name: '', email: '', password: '', confirmPassword: '' });
+            setLoading(true);
+            setTimeout(() => {
+                navigate('/signin');
+            }, 2000);
+          
+        } catch (error) {
+            if (error.response && error.response.data && error.response.data.errors) {
+            const serverErrors = error.response.data.errors;
+            let formErrors = {};
+            serverErrors.forEach(err => {
+                formErrors[err.param] = err.msg;
+            });
+            setErrors(formErrors);
+            } else {
+            setErrors({general:error.response?.data?.message || 'Server error'});
+            }
+        }
     };
 
     // Get color class based on password strength

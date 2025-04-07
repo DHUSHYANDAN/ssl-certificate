@@ -134,7 +134,6 @@ const getAllSSLDetails = async (req, res) => {
 
       let daysRemaining = Math.ceil((validToDate - todayIST) / (1000 * 60 * 60 * 24));
       let expiryStatus = daysRemaining < 0 ? "Expired" : daysRemaining;
-
       let emailsSent = ssl.emailSchedule?.emailsSent;
       if (typeof emailsSent === "string") {
         try {
@@ -172,19 +171,26 @@ const getAllSSLDetails = async (req, res) => {
 
 const deleteSSLDetails = async (req, res) => {
   const { sslId } = req.body;
+
   if (!sslId) return res.status(400).json({ message: "SSL ID is required" });
 
   try {
+    // Delete dependent records from the EmailSchedule table (if any)
+    await EmailSchedule.destroy({ where: { sslId } });
+
+    // Now delete the SSLDetails record
     await SSLDetails.destroy({ where: { sslId } });
+
     res.status(200).json({ message: "SSL details deleted successfully" });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Error deleting SSL details", error: error.message });
   }
 };
 
 
 const checkAndFetchSSL = async (req, res) => {
-  console.log("Received request body:", req.body);
+  // console.log("Received request body:", req.body);
 
   const { url } = req.body;
   if (!url) return res.status(400).json({ message: "URL is required" });
@@ -260,7 +266,92 @@ const checkAndFetchSSL = async (req, res) => {
   }
 };
 
+const bulkSSLFetch = async (req, res) => {
+  const { urls } = req.body;
 
-module.exports = { checkAndFetchSSL, getAllSSLDetails, updateSSLDetails, deleteSSLDetails,upload };
+  if (!Array.isArray(urls) || urls.length === 0) {
+    return res.status(400).json({ message: "URLs array is required" });
+  }
+
+  const results = [];
+
+  for (const url of urls) {
+    try {
+      const response = await new Promise((resolve, reject) => {
+        const parsedUrl = new URL(url);
+        const host = parsedUrl.hostname;
+
+        const socket = net.connect(443, host, () => {
+          const secureSocket = tls.connect({
+            socket,
+            servername: host,
+            rejectUnauthorized: false
+          }, async () => {
+            const certificate = secureSocket.getPeerCertificate();
+            if (!certificate || Object.keys(certificate).length === 0) {
+              return resolve({ url, error: "No SSL certificate found" });
+            }
+
+            const existingData = await SSLDetails.findOne({ where: { url } });
+            const expiryDate = new Date(certificate.valid_to);
+            const today = new Date();
+
+            if (existingData && new Date(existingData.validTo) > today) {
+              return resolve({ url, message: "Existing valid certificate", data: existingData });
+            }
+
+            const lastSSL = await SSLDetails.findOne({ order: [['sslId', 'DESC']] });
+            const newSSLId = lastSSL ? lastSSL.sslId + 1 : 1;
+
+            const sslData = {
+              sslId: newSSLId,
+              url,
+              issuedToCommonName: certificate.subject?.CN || "Unknown",
+              issuedToOrganization: certificate.subject?.O || "Unknown",
+              issuedByCommonName: certificate.issuer?.CN || "Unknown",
+              issuedByOrganization: certificate.issuer?.O || "Unknown",
+              validFrom: new Date(certificate.valid_from),
+              validTo: new Date(certificate.valid_to),
+              siteManager: "",
+              email: "",
+              image_url: "",
+            };
+
+            const [sslRecord] = await SSLDetails.upsert(sslData);
+            if (!existingData) {
+              await EmailSchedule.create({
+                sslId: newSSLId,
+                nextEmailDates: {
+                  thirtyDays: new Date(expiryDate.getTime() - 30 * 24 * 60 * 60 * 1000),
+                  fifteenDays: new Date(expiryDate.getTime() - 15 * 24 * 60 * 60 * 1000),
+                  tenDays: new Date(expiryDate.getTime() - 10 * 24 * 60 * 60 * 1000),
+                  fiveDays: new Date(expiryDate.getTime() - 5 * 24 * 60 * 60 * 1000),
+                  daily: new Date(expiryDate.getTime() - 5 * 24 * 60 * 60 * 1000),
+                }
+              });
+            }
+
+            resolve({ url, message: "Fetched successfully", data: sslRecord });
+            secureSocket.end();
+            socket.end();
+          });
+
+          secureSocket.on("error", err => resolve({ url, error: "TLS error", details: err.message }));
+        });
+
+        socket.on("error", err => resolve({ url, error: "Socket error", details: err.message }));
+      });
+
+      results.push(response);
+    } catch (error) {
+      results.push({ url, error: "Internal error", details: error.message });
+    }
+  }
+
+  return res.status(200).json({ message: "Bulk SSL fetch completed", results });
+};
+
+
+module.exports = { checkAndFetchSSL, getAllSSLDetails, updateSSLDetails, deleteSSLDetails,upload,bulkSSLFetch };
 
 

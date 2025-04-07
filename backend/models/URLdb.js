@@ -30,8 +30,13 @@
       
         
       },
-      image_url: { type: DataTypes.STRING },  
+      image_url: { type: DataTypes.STRING },
+      deletedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },  
     },
+    
     {
       sequelize,
       modelName: "SSLDetails",

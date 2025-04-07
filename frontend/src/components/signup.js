@@ -25,16 +25,7 @@ const Signup = () => {
         setPasswordVisible(!passwordVisible);
     };
 
-    // Handle input change
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prevData) => ({
-            ...prevData,
-            [name]: value
-        }));
-
-        validateField(name, value);
-    };
+   
 
     // Password strength evaluation
     const evaluatePasswordStrength = (password) => {
@@ -44,82 +35,133 @@ const Signup = () => {
         return 'strong';
     };
 
-    // Validate input fields
+    // Validate individual field
     const validateField = (name, value) => {
-        let error = '';
-
-        switch (name) {
-            case 'name':
-                if (!value.trim()) {
-                    error = 'Name is required';
-                } else if (!/^[a-zA-Z\s]+$/.test(value)) {
-                    error = 'Only alphabets are allowed';
-                }
-                break;
-            case 'email':
-                if (!value.trim()) {
-                    error = 'Email is required';
-                } else if (!/\S+@\S+\.\S+/.test(value)) {
-                    error = 'Invalid email format';
-                }
-                break;
-            case 'password':
-                if (!value) {
-                    setPasswordStrength('');
-                    error = 'Password is required';
-                } else {
-                    const strength = evaluatePasswordStrength(value);
-                    setPasswordStrength(strength);
-
-                    if (strength === 'weak') {
-                        error = 'Weak: Must be at least 6 characters';
-                    } else if (strength === 'normal') {
-                        error = 'Normal: Add a number & special character';
-                    } else if (strength === 'medium') {
-                        error = 'Medium: Add both uppercase & lowercase';
-                    }
-                }
-                break;
-            case 'confirmPassword':
-                if (!value) {
-                    error = 'Confirm Password is required';
-                } else if (value !== formData.password) {
-                    error = 'Passwords do not match';
-                }
-                break;
-            default:
-                break;
+        const newErrors = { ...errors };
+        
+        if (name === 'name') {
+            if (!value) {
+                newErrors.name = 'Name is required';
+            } else if (!value.match(/^[a-zA-Z ]+$/)) {
+                newErrors.name = 'Name can only contain alphabetical characters';
+            } else if (value.length > 25) {
+                newErrors.name = 'Name is too long';
+            } else {
+                delete newErrors.name;
+            }
         }
 
-        setErrors((prevErrors) => ({
-            ...prevErrors,
-            [name]: error
-        }));
+        if (name === 'email') {
+            if (!value) {
+                newErrors.email = 'Email is required';
+            } else if (!value.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)) {
+                newErrors.email = 'Invalid email format';
+            } else {
+                delete newErrors.email;
+            }
+        }
+
+        if (name === 'password') {
+            if (!value) {
+                newErrors.password = 'Password is required';
+            } else {
+                const strength = evaluatePasswordStrength(value);
+                setPasswordStrength(strength);
+                
+                if (strength === 'weak') {
+                    newErrors.password = 'Weak: Must be at least 6 characters';
+                } else if (strength === 'normal') {
+                    newErrors.password = 'Normal: Add a number & special character';
+                } else if (strength === 'medium') {
+                    newErrors.password = 'Medium: Add both uppercase & lowercase';
+                } else if (strength === 'strong') {
+                    newErrors.password = 'Strong: Good password';
+                }
+            }
+        }
+
+        setErrors(newErrors);
     };
 
     // Validate all fields on submit
     const validateForm = () => {
-        const formErrors = {};
-
-        Object.keys(formData).forEach((key) => {
-            validateField(key, formData[key]);
-            if (!formData[key].trim()) {
-                formErrors[key] = `${key.charAt(0).toUpperCase() + key.slice(1)} is required`;
+        const newErrors = {};
+    
+        // Name validation
+        if (!formData.name) newErrors.name = 'Name is required';
+        else if (!formData.name.match(/^[a-zA-Z ]+$/)) {
+            newErrors.name = 'Name can only contain alphabetical characters';
+        } else if (formData.name.length > 25) {
+            newErrors.name = 'Name is too long';
+        }
+    
+        // Email validation
+        if (!formData.email) newErrors.email = 'Email is required';
+        else if (!formData.email.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)) {
+            newErrors.email = 'Invalid email format';
+        }
+    
+        // Password validation
+        if (!formData.password) {
+            newErrors.password = 'Password is required';
+        } else {
+            const strength = evaluatePasswordStrength(formData.password);
+            setPasswordStrength(strength);
+    
+            if (strength === 'weak') {
+                newErrors.password = 'Weak: Must be at least 6 characters';
+            } else if (strength === 'normal') {
+                newErrors.password = 'Normal: Add a number & special character';
+            } else if (strength === 'medium') {
+                newErrors.password = 'Medium: Add both uppercase & lowercase';
+            } else if (strength === 'strong') {
+                // Strong passwords still count as valid — no error
             }
-        });
-
-        setErrors(formErrors);
-        return Object.keys(formErrors).length === 0;
+        }
+    
+        // Confirm password
+        if (formData.password !== formData.confirmPassword) {
+            newErrors.confirmPassword = 'Passwords do not match';
+        }
+    
+        // ✅ Simplified final check
+        if (Object.keys(newErrors).length) {
+            setErrors(newErrors);
+            return false;
+        }
+    
+        setErrors({});
+        return true;
     };
+     // Handle input change
+     const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData((prevData) => ({
+            ...prevData,
+            [name]: value
+        }));
 
+        validateField(name, value);
+    };
     // Handle form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
-
+       
         if (!validateForm()) return;
-
+        console.log("Form submitted!");
         if (passwordStrength === 'weak') {
             toast.error('Please enter a stronger password!');
+            console.log("brofre Validation Passed!");
+
+            return;
+        }console.log("Validation Passed!");
+
+
+        // Additional check for password match
+        if (formData.password !== formData.confirmPassword) {
+            console.log("Passwords do not match.");
+
+            toast.error('Passwords do not match!');
             return;
         }
 
@@ -133,13 +175,18 @@ const Signup = () => {
                 },
                 { withCredentials: true }
             );
-
-            toast.success(response.data.message);
+            toast.success('Registration successful! ')
+            console.log(response); // Debug the response for better understanding
+           
 
             setFormData({ name: '', email: '', password: '', confirmPassword: '' });
-            setLoading(true);
+            setLoading(true); // Set loading state after success
+            
             setTimeout(() => navigate('/signin'), 2000);
         } catch (error) {
+            console.log(error); // Log error if something goes wrong
+            console.log("Error occurred:", error.response?.data);
+
             if (error.response?.data?.errors) {
                 const serverErrors = error.response.data.errors.reduce((acc, err) => {
                     acc[err.param] = err.msg;
@@ -295,14 +342,10 @@ const Signup = () => {
                     >
                         Sign Up
                     </button>
-
-                    {/* Redirect to Login */}
                     <p className="text-center mt-4">
-                        Already have an account?{' '}
-                        <a href="/signin" className="text-blue-700 font-bold">
-                            Log in
-                        </a>
-                    </p>
+                    Already have an account? <a href="/signin" className="text-blue-700 font-bold">Log in</a>
+                </p>
+                    
                 </form>
                 <ToastContainer />
             </div>
