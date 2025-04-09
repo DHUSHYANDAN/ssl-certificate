@@ -6,12 +6,11 @@ require("dotenv").config();
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
+const sequelize = require("../../db");
 
 // Ensure the `../images` directory exists
-const uploadDir = path.join(__dirname, "../../../images");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+const uploadDir = path.join(process.cwd(), "images");
+
 
 // Function to generate a unique image name based on the URL
 const generateImageName = (url) => {
@@ -61,7 +60,66 @@ const upload = multer({
   },
 });
 
+//for image update
+const updateImage = async (req, res) => {
+  const url = req.body.url; //  Get URL from frontend
+  if (!url) {
+    return res.status(400).json({ message: "URL is required" });
+  }
 
+  try {
+    const sslRecord = await SSLDetails.findOne({ where: { url } });
+
+    if (!sslRecord) {
+      return res.status(404).json({ message: "SSL record not found" });
+    }
+
+    let imageUrl = sslRecord.image_url;
+
+    if (req.file) {
+      imageUrl = `/images/${req.file.filename}`; //  Better: Use multer-generated filename
+    }
+
+    await SSLDetails.update(
+      { image_url: imageUrl }, // No need to spread req.file
+      { where: { url } }
+    );
+
+    res.status(200).json({ message: "SSL details updated successfully" });
+  } catch (error) {
+    console.error("❌ Update Error:", error.message);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+//for delete image
+const deleteImage = async (req, res) => {
+  const { url } = req.body;
+  if (!url) {
+    return res.status(400).json({ message: "URL is required" });
+  }
+  try {
+    const sslRecord = await SSLDetails.findOne({ where: { url } });
+    if (!sslRecord) {
+      return res.status(404).json({ message: "SSL record not found" });
+    }
+    if (!sslRecord.image_url) {
+      return res.status(400).json({ message: "There is no image to delete" });
+    }
+    const imagePath = path.join(uploadDir, sslRecord.image_url.split("/").pop());
+    if (fs.existsSync(imagePath)) { // Check if file exists
+      fs.unlinkSync(imagePath); // Delete file
+    }
+    await SSLDetails.update(
+      { image_url: null }, // Set image_url to null
+      { where: { url } }
+    );
+    res.status(200).json({ message: "Image deleted successfully" });
+  } catch (error) {
+    console.error("❌ Error deleting image:", error.message);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 
@@ -80,15 +138,6 @@ const updateSSLDetails = async (req, res) => {
       return res.status(404).json({ message: "SSL details not found for this URL" });
     }
 
-    
-    let imageUrl = sslRecord.image_url || "";
-    if (req.file) {
-      imageUrl = `/images/${generateImageName(url)}`; // Store relative path
-    }
-    await SSLDetails.update(
-      { ...updateData, image_url: imageUrl },
-      { where: { url } }
-    );
 
     const emailSchedule = await EmailSchedule.findOne({ where: { sslId: sslRecord.sslId } });
 
@@ -174,19 +223,26 @@ const deleteSSLDetails = async (req, res) => {
 
   if (!sslId) return res.status(400).json({ message: "SSL ID is required" });
 
+  const t = await sequelize.transaction(); // start transaction
   try {
-    // Delete dependent records from the EmailSchedule table (if any)
-    await EmailSchedule.destroy({ where: { sslId } });
+    // Delete from EmailSendLog first (One-to-Many)
+    await EmailSendLog.destroy({ where: { sslId }, transaction: t });
 
-    // Now delete the SSLDetails record
-    await SSLDetails.destroy({ where: { sslId } });
+    // Delete from EmailSchedule (One-to-One)
+    await EmailSchedule.destroy({ where: { sslId }, transaction: t });
 
+    // Now delete from SSLDetails
+    await SSLDetails.destroy({ where: { sslId }, transaction: t });
+
+    await t.commit();
     res.status(200).json({ message: "SSL details deleted successfully" });
   } catch (error) {
-    console.error(error);
+    await t.rollback();
+    console.error("❌ Error deleting SSL record:", error);
     res.status(500).json({ message: "Error deleting SSL details", error: error.message });
   }
 };
+
 
 
 const checkAndFetchSSL = async (req, res) => {
@@ -352,6 +408,6 @@ const bulkSSLFetch = async (req, res) => {
 };
 
 
-module.exports = { checkAndFetchSSL, getAllSSLDetails, updateSSLDetails, deleteSSLDetails,upload,bulkSSLFetch };
+module.exports = { checkAndFetchSSL, getAllSSLDetails, updateSSLDetails, deleteSSLDetails,upload,bulkSSLFetch ,updateImage ,deleteImage};
 
 

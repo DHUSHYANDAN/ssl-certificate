@@ -1,10 +1,13 @@
-const tls = require("tls");
-const net = require("net");
+
 const cron = require("node-cron");
 const nodemailer = require("nodemailer");
-const { SSLDetails, EmailSendLog, EmailSchedule } = require("../../models/associations");
-const Schedule = require("../../models/schedule");
+const { SSLDetails, EmailSendLog, EmailSchedule } = require("../../../models/associations");
+const Schedule = require("../../../models/schedule");
 require("dotenv").config();
+const { Worker } = require("worker_threads");
+const path = require("path");
+const pLimit = require('p-limit');
+
 
 let cronJob;
 
@@ -12,42 +15,41 @@ const isValidCron = (expression) => {
   const cronRegex = /^([0-5]?\d|\*) ([01]?\d|2[0-3]|\*) ([0-2]?\d|3[01]|\*) ([0-9]|1[0-2]|\*) ([0-7]|\*)$/;
   return cronRegex.test(expression);
 };
-
 const updateCronSchedule = async (req, res) => {
-  try {
-    let { cronSchedule } = req.body;
-
-    if (!cronSchedule || typeof cronSchedule !== "string" || !isValidCron(cronSchedule.trim())) {
-      return res.status(400).json({ message: "Invalid cron schedule format" });
+    try {
+      let { cronSchedule } = req.body;
+  
+      if (!cronSchedule || typeof cronSchedule !== "string" || !isValidCron(cronSchedule.trim())) {
+        return res.status(400).json({ message: "Invalid cron schedule format" });
+      }
+  
+      await Schedule.update({ active: false }, { where: {} });
+      let [scheduleData, created] = await Schedule.findOrCreate({ where: { cronSchedule }, defaults: { active: true } });
+      if (!created) await scheduleData.update({ active: true });
+  
+      await scheduleCronJob();
+      return res.status(200).json({ message: "Cron schedule updated successfully", cronSchedule });
+    } catch (error) {
+      console.error("Error updating cron schedule:", error);
+      return res.status(500).json({ message: "Internal server error", error: error.message });
     }
-
-    await Schedule.update({ active: false }, { where: {} });
-    let [scheduleData, created] = await Schedule.findOrCreate({ where: { cronSchedule }, defaults: { active: true } });
-    if (!created) await scheduleData.update({ active: true });
-
-    await scheduleCronJob();
-    return res.status(200).json({ message: "Cron schedule updated successfully", cronSchedule });
-  } catch (error) {
-    console.error("Error updating cron schedule:", error);
-    return res.status(500).json({ message: "Internal server error", error: error.message });
-  }
-};
-
-const getCronSchedule = async (req, res) => {
-  try {
-    let scheduleData = await Schedule.findOne({ where: { active: true } });
-    if (!scheduleData) {
-      scheduleData = await Schedule.create({ cronSchedule: "0 6 * * *", active: true });
+  };
+  
+  const getCronSchedule = async (req, res) => {
+    try {
+      let scheduleData = await Schedule.findOne({ where: { active: true } });
+      if (!scheduleData) {
+        scheduleData = await Schedule.create({ cronSchedule: "0 6 * * *", active: true });
+      }
+      return res.status(200).json({ message: "Cron schedule retrieved successfully", cronSchedule: scheduleData.cronSchedule });
+    } catch (error) {
+      console.error("Error fetching cron schedule:", error);
+      return res.status(500).json({ message: "Internal server error", error: error.message });
     }
-    return res.status(200).json({ message: "Cron schedule retrieved successfully", cronSchedule: scheduleData.cronSchedule });
-  } catch (error) {
-    console.error("Error fetching cron schedule:", error);
-    return res.status(500).json({ message: "Internal server error", error: error.message });
-  }
-};
+  };
 
 const sendEmailAlert = async (ssl, daysLeft, emailType) => {
-  console.log("Sending email alert for", ssl.url);
+  console.log("Sending email alert for", ssl.url,emailType);
 
   const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -108,11 +110,12 @@ const sendEmailAlert = async (ssl, daysLeft, emailType) => {
     return true;
   } catch (error) {
     await EmailSendLog.create({ sslId: ssl.sslId, emailType, recipient: ssl.email||'Not Entered', subject: `Urgent: SSL Certificate Expiry Notification for ${ssl.url}`, status: "failed", statusMessage: error.message });
-    deleteEmailLog(ssl.sslId);
+     deleteEmailLog(ssl.sslId);
     return false;
   }
 };
 
+//here delete the emaillog that is failure . when there is failure email log to 10 remove the failure email log previous email logs
 const deleteEmailLog = async (sslId) => {
   try {
     const emailLogs = await EmailSendLog.findAll({ where: { sslId, status: "failed" } });
@@ -125,6 +128,7 @@ const deleteEmailLog = async (sslId) => {
     console.error(`Error deleting email logs for SSL ID ${sslId}:`, error);
   }
 };
+
 
 const scheduleCronJob = async () => {
   
@@ -149,59 +153,52 @@ const scheduleCronJob = async () => {
       console.log(`🚀 Fetching all stored SSL details...`);
       const sslDetails = await SSLDetails.findAll();
 
+      const limit = pLimit(15); // Max 5 workers at a time
 
-      for (const ssl of sslDetails) {
-        const parsedUrl = new URL(ssl.url);
-        const host = parsedUrl.hostname;
-        const socket = net.connect(443, host, () => {
-          const secureSocket = tls.connect(
-            { socket, servername: host, rejectUnauthorized: false },
-            async () => {
-              const certificate = secureSocket.getPeerCertificate();
-              if (!certificate || Object.keys(certificate).length === 0) {
-                console.error(`No SSL certificate found for ${ssl.url}`);
-                return;
+      const checkPromises = sslDetails.map((ssl) =>
+        limit(() =>
+          new Promise((resolve) => {
+            const worker = new Worker(path.resolve(__dirname, "sslCheckerWorker.js"), {
+              workerData: { url: ssl.url }
+            });
+      
+            worker.on("message", async (msg) => {
+              if (msg.success) {
+                const cert = msg.data;
+                await SSLDetails.upsert({
+                  url: cert.url,
+                  issuedToCommonName: cert.issuedToCommonName,
+                  issuedToOrganization: cert.issuedToOrganization,
+                  issuedByCommonName: cert.issuedByCommonName,
+                  issuedByOrganization: cert.issuedByOrganization,
+                  validFrom: cert.validFrom,
+                  validTo: cert.validTo,
+                }, {
+                  where: { url: cert.url }
+                });
+      
+                console.log(`✅ Updated SSL details for ${cert.url}`);
+              } else {
+                console.error(`❌ SSL check failed for ${ssl.url}: ${msg.error}`);
               }
-
-              const validFrom = new Date(certificate.valid_from);
-              const validTo = new Date(certificate.valid_to);
-              const sslData = {
-                issuedToCommonName: certificate.subject?.CN || "Unknown",
-                issuedToOrganization: certificate.subject?.O || "Unknown",
-                issuedByCommonName: certificate.issuer?.CN || "Unknown",
-                issuedByOrganization: certificate.issuer?.O || "Unknown",
-                validFrom,
-                validTo,
-              };
-
-              await SSLDetails.upsert(
-                {
-                  url: ssl.url,  // ✅ Ensure the URL is included
-                  issuedToCommonName: certificate.subject?.CN || "Unknown",
-                  issuedToOrganization: certificate.subject?.O || "Unknown",
-                  issuedByCommonName: certificate.issuer?.CN || "Unknown",
-                  issuedByOrganization: certificate.issuer?.O || "Unknown",
-                  validFrom,
-                  validTo,
-                },
-                { where: { url: ssl.url } }
-              );
-
-              console.log(`✅ Updated SSL details for ${ssl.url}`);
-              secureSocket.end();
-              socket.end();
-            }
-          );
-
-          secureSocket.on("error", (err) =>
-            console.error(`TLS error for ${ssl.url}:`, err.message)
-          );
-        });
-
-        socket.on("error", (err) =>
-          console.error(`Socket connection error for ${ssl.url}:`, err.message)
-        );
-      }
+              resolve(); // Finish the promise
+            });
+      
+            worker.on("error", (err) => {
+              console.error(`❌ Worker error for ${ssl.url}:`, err.message);
+              resolve(); // Prevent hanging
+            });
+      
+            worker.on("exit", (code) => {
+              if (code !== 0) {
+                console.error(`⚠️ Worker stopped with exit code ${code}`);
+              }
+            });
+          })
+        )
+      );
+      
+      await Promise.all(checkPromises);
 
       console.log(`🔄 Running SSL expiry check with cron time: ${cronSchedule}`);
       console.log(`Fetched ${sslDetails.length} SSL details.`);
@@ -209,59 +206,56 @@ const scheduleCronJob = async () => {
 
       try {
         const sslDetails = await SSLDetails.findAll();
-        for (const ssl of sslDetails) {
-          const daysRemaining = Math.ceil((ssl.validTo - new Date()) / (24 * 60 * 60 * 1000));
-          const emailSchedule = await EmailSchedule.findOne({ where: { sslId: ssl.sslId } });
-
-          if (emailSchedule) {
-            let emailsSent = emailSchedule.emailsSent ? JSON.parse(emailSchedule.emailsSent) : {};
-
-            if (daysRemaining <= 31 && !emailsSent.thirtyDays) {
-  
-                emailsSent.thirtyDays = await sendEmailAlert(ssl, daysRemaining, "30days") ? true : false;
-            }
-
-            if (daysRemaining <= 15 && !emailsSent.fifteenDays) {
-             
-              emailsSent.fifteenDays =  await sendEmailAlert(ssl, daysRemaining, "15days") ? true : false;
-            }
-
-            if (daysRemaining <= 10 && !emailsSent.tenDays) {
-             
-              emailsSent.tenDays = await sendEmailAlert(ssl, daysRemaining, "10days") ? true : false;
-            }
-
-            if (daysRemaining <= 5 && !emailsSent.fiveDays) {
-              
-              emailsSent.fiveDays =  await sendEmailAlert(ssl, daysRemaining, "5days") ? true : false;
-            }
-
-            if (daysRemaining <= 5) {
-              if (!emailsSent.dailyEmailCount) {
-              emailsSent.dailyEmailCount = 0;
+        const emailLimit = pLimit(15); // Max 10 parallel email sends
+        const emailTasks = sslDetails.map((ssl) => 
+          emailLimit(async () => {
+            try {
+              const daysRemaining = Math.ceil((ssl.validTo - new Date()) / (24 * 60 * 60 * 1000));
+              const emailSchedule = await EmailSchedule.findOne({ where: { sslId: ssl.sslId } });
+        
+              if (emailSchedule) {
+                let emailsSent = emailSchedule.emailsSent ? JSON.parse(emailSchedule.emailsSent) : {};
+        
+                if (daysRemaining <= 31 && !emailsSent.thirtyDays) {
+                  emailsSent.thirtyDays = await sendEmailAlert(ssl, daysRemaining, "30days") || false;
+                }
+        
+                if (daysRemaining <= 15 && !emailsSent.fifteenDays) {
+                  emailsSent.fifteenDays = await sendEmailAlert(ssl, daysRemaining, "15days") || false;
+                }
+        
+                if (daysRemaining <= 10 && !emailsSent.tenDays) {
+                  emailsSent.tenDays = await sendEmailAlert(ssl, daysRemaining, "10days") || false;
+                }
+        
+                if (daysRemaining <= 5 && !emailsSent.fiveDays) {
+                  emailsSent.fiveDays = await sendEmailAlert(ssl, daysRemaining, "5days") || false;
+                }
+        
+                if (daysRemaining <= 5) {
+                  if (!emailsSent.dailyEmailCount) {
+                    emailsSent.dailyEmailCount = 0;
+                  }
+        
+                  const emailSent = await sendEmailAlert(ssl, daysRemaining, "daily");
+                  if (emailSent) {
+                    emailsSent.dailyEmailCount += 1;
+                  }
+                }
+        
+                await EmailSchedule.update(
+                  { emailsSent: JSON.stringify(emailsSent) },
+                  { where: { sslId: ssl.sslId } }
+                );
               }
-
-              const emailSent = await sendEmailAlert(ssl, daysRemaining, "daily");
-
-              // Increment the count only if the email was sent successfully
-              if (emailSent) {
-              emailsSent.dailyEmailCount += 1;
-              }
-
-              // Ensure the update is saved in the database
-              await EmailSchedule.update(
-                { emailsSent }, // Update field
-                { where: { sslId: ssl.sslId } } // Condition
-              );
+            } catch (e) {
+              console.error(`❌ Error processing ${ssl.url}:`, e.message);
             }
-
-
-            await EmailSchedule.update(
-              { emailsSent: JSON.stringify(emailsSent) },
-              { where: { sslId: ssl.sslId } }
-            );
-          }
-        }
+          })
+        );
+        
+        await Promise.all(emailTasks); 
+        
         console.log("✅ SSL expiry check completed.");
                                                                                    
       } catch (error) {
@@ -288,3 +282,5 @@ scheduleCronJob();
 
 
 module.exports = { updateCronSchedule, getCronSchedule };
+
+  

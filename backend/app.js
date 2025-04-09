@@ -27,7 +27,17 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB Connection
+// Load environment variables from .crt file (since .env is ignored by pkg)
+const envFile = path.join(process.cwd(), 'config.crt');
+if (fs.existsSync(envFile)) {
+    const envConfig = fs.readFileSync(envFile, 'utf-8')
+        .split('\n')
+        .filter(line => line.trim() && !line.startsWith('#'))
+        .forEach(line => {
+            const [key, value] = line.split('=');
+            process.env[key.trim()] = value.trim();
+        });
+}
 
 
   app.use(cors({
@@ -41,22 +51,29 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/", urlRoutes, userRoutes);
 
 
-// Correct path to "images" folder (outside backend)
-const uploadDir = path.join(__dirname, "../images");
+// // Correct path to "images" folder (outside backend)
+// const uploadDir = path.join(__dirname, "../images");
 
 // Ensure the images folder exists
+const uploadDir = path.join(process.cwd(), "images");
+
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
+
+
 
 // Serve images statically
 app.use("/images",protect, express.static(uploadDir));
 
 
+// app.use('/images', express.static(path.join(__dirname, uploadDir)));
+
+
 // Serve React Frontend
 
 app.use(cors());
-const buildPath = path.join(__dirname, "../frontend/build");
+const buildPath = path.join(__dirname, "build");
 app.use(express.static(buildPath));
 
 app.get("*", (req, res) => {

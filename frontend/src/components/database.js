@@ -546,25 +546,25 @@ const SSLTable = ({ loading, setLoading }) => {
 
   const uploadSSLImage = async () => {
     const { file } = editSSL;
-  
+
     if (!editSSL.url) {
       toast.error("URL is missing. Please provide a valid URL before uploading.");
       return;
     }
-  
+
     const formData = new FormData();
     formData.append("url", editSSL.url);
     formData.append("file", file);
-  
+
     try {
-      const response = await axios.put(`${baseUrl}/ssl-update`, formData, {
+      const response = await axios.put(`${baseUrl}/ssl-update-image`, formData, {
         withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
       });
-  
+
       console.log("Upload Success:", response.data);
       toast.success("Image updated successfully!", { autoClose: 2000 });
-  
+
       // Ensure backend sends updated image URL
       // if (response.data.image_url) {
       //   // Update state with new image URL
@@ -572,7 +572,7 @@ const SSLTable = ({ loading, setLoading }) => {
       //     ...prev,
       //     image_url: response.data.image_url,
       //   }));
-  
+
       //   // Manually update query cache to reflect changes in the table
       //   queryClient.setQueryData(["sslDetails"], (oldData) => {
       //     if (!oldData) return oldData; // Handle case when oldData is undefined
@@ -580,7 +580,7 @@ const SSLTable = ({ loading, setLoading }) => {
       //       item.url === editSSL.url ? { ...item, image_url: response.data.image_url } : item
       //     );
       //   });
-  
+
       //   // Invalidate query to refetch updated data
       //   queryClient.invalidateQueries(["sslDetails"]);
       // }
@@ -589,8 +589,39 @@ const SSLTable = ({ loading, setLoading }) => {
       toast.error(error.response?.data?.message || "Failed to upload image.");
     }
   };
-  
-  
+
+  //for image delete
+  const deleteSSLImage = async () => {
+    const { url } = editSSL;
+    if (!url) {
+      toast.error("URL is missing. Please provide a valid URL before deleting.");
+      return;
+    }
+
+    try {
+      const response = await axios.delete(`${baseUrl}/delete-image`, {
+        data: { url },
+        withCredentials: true,
+      });
+
+      console.log("Delete Success:", response.data);
+      toast.success("Image deleted successfully!", { autoClose: 2000 });
+
+      // Optionally update frontend state and cache here
+      // For example, you could clear the image_url from state:
+      setEditSSL((prev) => ({ ...prev, image_url: "" }));
+
+      // Invalidate and refetch data to reflect changes
+      queryClient.invalidateQueries(["sslDetails"]);
+    } catch (error) {
+      console.error("Image delete failed:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Failed to delete image.");
+    }
+  };
+
+
+
+
 
   // Delete is still handled via a custom hook
   const deleteSSL = useDeleteSSL(setLoading);
@@ -774,7 +805,7 @@ const SSLTable = ({ loading, setLoading }) => {
                   <Grid item xs={12}>
                     <Typography sx={{ my: 2 }}>  <span className="text-xl ">SSL Certificate Details</span></Typography>
 
-                    <Typography><strong>📆 Days Remaining:</strong> {selectedSSL.daysRemaining>0 ?selectedSSL.daysRemaining :selectedSSL.expiryStatus}</Typography>
+                    <Typography><strong>📆 Days Remaining:</strong> {selectedSSL.daysRemaining > 0 ? selectedSSL.daysRemaining : selectedSSL.expiryStatus}</Typography>
                   </Grid>
                 </Grid>
 
@@ -956,91 +987,128 @@ const SSLTable = ({ loading, setLoading }) => {
             />
             <Box
               sx={{
-                mt: 3,
-                p: 3,
-                borderRadius: "12px",
-                backgroundColor: "#f9f9f9",
-                boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.1)",
-                textAlign: "",
+                mt: 4,
+                p: { xs: 2, sm: 3, md: 4 },
+                borderRadius: 3,
+                backgroundColor: "#fdfdfd",
+                boxShadow: "0 4px 20px rgba(0, 0, 0, 0.08)",
+                maxWidth: 700,
+                width: "100%",
+                mx: "auto",
               }}
             >
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold", color: "#333" }}>
-                Upload siteManager or URL Image
+              <Typography
+                variant="h6"
+                sx={{
+                  mb: 3,
+                  fontWeight: "bold",
+                  color: "#2c3e50",
+                  textAlign: "center",
+                  fontSize: { xs: "1.1rem", sm: "1.25rem" },
+                }}
+              >
+                Upload Site Manager Image / URL Image
               </Typography>
 
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (file) {
-                    setSelectedFile(file);
-                    setEditSSL((prev) => ({
-                      ...prev,
-                      file,
-                      url: prev.url || "default-url", // Ensure URL is not undefined
-                    }));
-                  }
-                }}
-                style={{ display: "none" }}
-                id="upload-image-input"
-              />
-
-              <label htmlFor="upload-image-input">
-                <Button
-                  variant="contained"
-                  component="span"
-                  sx={{
-                    backgroundColor: "#1976d2",
-                    color: "white",
-                    fontWeight: "bold",
-                    px: 3,
-                    py: 1.5,
-                    borderRadius: "8px",
-                    textTransform: "none",
-                    "&:hover": {
-                      backgroundColor: "#1565c0",
-                    },
+              <Box
+                display="flex"
+                flexDirection={{ xs: "column", sm: "row" }}
+                justifyContent="center"
+                alignItems="center"
+                gap={2}
+                sx={{ mb: 3 }}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="upload-image-input"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setSelectedFile(file);
+                      setEditSSL((prev) => ({
+                        ...prev,
+                        file,
+                        url: prev.url || "default-url", // fallback URL
+                      }));
+                    }
                   }}
-                >
-                  🔍 Choose Image
-                </Button>
-              </label>
+                />
+
+                <label htmlFor="upload-image-input">
+                  <Button
+                    variant="contained"
+                    component="span"
+                    sx={{
+                      backgroundColor: "#1976d2",
+                      fontWeight: "bold",
+                      px: 3,
+                      py: 1.2,
+                      borderRadius: 2,
+                      textTransform: "none",
+                      width: { xs: "100%", sm: "auto" },
+                      "&:hover": {
+                        backgroundColor: "#1565c0",
+                      },
+                    }}
+                  >
+                    🔍 Choose Image
+                  </Button>
+                </label>
+
+                {editSSL?.image_url && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={deleteSSLImage}
+                    sx={{
+                      fontWeight: "bold",
+                      px: 3,
+                      py: 1.2,
+                      borderRadius: 2,
+                      textTransform: "none",
+                      width: { xs: "100%", sm: "auto" },
+                      "&:hover": {
+                        backgroundColor: "#fce4e4",
+                      },
+                    }}
+                  >
+                    🗑️ Delete Image
+                  </Button>
+                )}
+              </Box>
 
               {selectedFile && (
-                <Box sx={{ mt: 1 }}>
-                  {/* Selected File Name */}
+                <Box textAlign="center">
                   <Typography
                     variant="body2"
                     sx={{
-                      color: "gray",
+                      color: "#7f8c8d",
                       fontStyle: "italic",
+                      mb: 2,
+                      fontSize: { xs: "0.9rem", sm: "1rem" },
                     }}
                   >
                     Selected: {selectedFile.name}
                   </Typography>
 
-                  {/* Image Preview */}
                   <Box
                     sx={{
-                      mt: 2,
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      borderRadius: "8px",
+                      mx: "auto",
+                      mb: 3,
+                      width: { xs: "100%", sm: 280 },
+                      height: 200,
+                      borderRadius: 2,
+                      border: "2px solid #e0e0e0",
                       overflow: "hidden",
-                      width: "250px",
-                      height: "200px",
-                      border: "2px solid #ddd",
                       backgroundColor: "#fff",
                     }}
                   >
                     <img
                       src={URL.createObjectURL(selectedFile)}
                       alt="Preview"
-                      className="justify-center"
                       style={{
-
                         width: "100%",
                         height: "100%",
                         objectFit: "cover",
@@ -1048,21 +1116,20 @@ const SSLTable = ({ loading, setLoading }) => {
                     />
                   </Box>
 
-                  {/* Show Upload Button Only After Selecting an Image */}
                   <Button
                     variant="contained"
-                    color="primary"
                     onClick={uploadSSLImage}
                     sx={{
-                      mt: 3,
-                      backgroundColor: "#1976d2",
+                      backgroundColor: "#2ecc71",
                       fontWeight: "bold",
                       textTransform: "none",
-                      borderRadius: "8px",
-                      px: 3,
+                      borderRadius: 2,
+                      px: 4,
                       py: 1.5,
+                      width: { xs: "100%", sm: "auto" },
+                     
                       "&:hover": {
-                        backgroundColor: "#1565c0",
+                        backgroundColor: "#27ae60",
                       },
                     }}
                   >
@@ -1071,6 +1138,9 @@ const SSLTable = ({ loading, setLoading }) => {
                 </Box>
               )}
             </Box>
+
+
+
 
 
             <Box
