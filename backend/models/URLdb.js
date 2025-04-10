@@ -1,61 +1,25 @@
-// models/SSLDetails.js
-const mongoose = require("mongoose");
+const { Sequelize, DataTypes, Model } = require("sequelize");
+const sequelize = require("../db");
 
-const UrlSchema = new mongoose.Schema({
-  sslId: { 
-    type: Number, 
-    required: true,
-    unique: true // Ensure this is unique to serve as a proper reference key
-  },
-  url: { 
-    type: String, 
-    required: true, 
-    unique: true 
-  },
-  issuedTo: {
-    commonName: { type: String, required: true },
-    organization: { type: String, required: true },
-  },
-  issuedBy: {
-    commonName: { type: String, required: true },
-    organization: { type: String, required: true },
-  },
-  validFrom: { 
-    type: Date, 
-    required: true 
-  },
-  validTo: { 
-    type: Date, 
-    required: true 
-  },
-  siteManager: { 
-    type: String, 
+class SSLDetails extends Model {}
+
+SSLDetails.init(
+  {
+    sslId: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    url: { type: DataTypes.STRING, allowNull: false, unique: true },
+    issuedToCommonName: { type: DataTypes.STRING, allowNull: false },
+    issuedToOrganization: { type: DataTypes.STRING, allowNull: false },
+    issuedByCommonName: { type: DataTypes.STRING, allowNull: false },
+    issuedByOrganization: { type: DataTypes.STRING, allowNull: false },
+    validFrom: { type: DataTypes.DATE, allowNull: false },
+    validTo: { type: DataTypes.DATE, allowNull: false },
+    siteManager: { type: DataTypes.STRING },
+    email: { type: DataTypes.STRING },
+    image_url: { type: DataTypes.STRING },
+    
   
   },
-  email: {
-    type: String,
-    
-    match: [/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/, 'Please enter a valid email address']
-  },
-  emailSchedule: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "EmailSchedule"
-  },
-  emailLogs: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "EmailSendLog"
-  }]
-}, { timestamps: true });
+  { sequelize, modelName: "SSLDetails", tableName: "ssl_details", timestamps: true, }
+);
 
-// Add methods for checking expiration status
-UrlSchema.methods.daysUntilExpiration = function() {
-  const today = new Date();
-  const expiryDate = new Date(this.validTo);
-  const diffTime = Math.abs(expiryDate - today);
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-};
-
-// Index for efficient querying
-UrlSchema.index({ validTo: 1 });
-
-module.exports = mongoose.model("SSLDetails", UrlSchema);
+module.exports = SSLDetails;

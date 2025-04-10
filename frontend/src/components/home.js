@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import baseUrl from "../URL";
-import { FaSpinner } from "react-icons/fa";
+import { FaSpinner,FaSearch,FaArrowCircleRight } from "react-icons/fa";
 
 
 const Home = () => {
@@ -28,12 +28,17 @@ const Home = () => {
         try {
             let parsedUrl = new URL(value);
             parsedUrl.protocol = "https:";
-            return parsedUrl.origin;
+    
+            // Normalize hostname by removing starting 'www.' if present
+            let hostname = parsedUrl.hostname.toLowerCase();
+            hostname = hostname.startsWith("www.") ? hostname.slice(4) : hostname;
+    
+            return `https://${hostname}`;
         } catch (_) {
             return null;
         }
     };
-
+    
     // Handle URL input change
     const handleChange = (e) => {
         setUrl(e.target.value);
@@ -62,13 +67,13 @@ const Home = () => {
             setCertificate(data.data);
             toast.success(data.message || "SSL data retrieved!", { autoClose: 2000 });
         } catch (error) {
-            if (error.message === "Socketerror" || error.message === "TLS error") {
-                toast.error("website is not reachable");
+            if (error.message === "Socket error" || error.message === "TLS error" || error.message === "Failed to fetch") {
+                toast.error("Server down or invalid URL");
             } else if (error.message === "Not authorized, no token") {
-               toast.error("Your session has Expired, Please login");
-            }else {
+                toast.error("Your session has Expired, Please login");
+            } else {
                 toast.error(error.message);
-                }
+            }
         }
         setLoading(false);
     };
@@ -114,59 +119,74 @@ const Home = () => {
 
     return (
         <div className="flex flex-col p-5 sm:pl-16 md:pl-5 md:items-start  lg:pl-[220px] xl:pl-0 xl:items-center  pt-6  min-h-screen bg-gray-100 bg-cover bg-center" style={{ backgroundImage: "url('./landingpage2.png')" }}>
-           
+
             <h1 className="text-3xl font-bold mb-6">Monitor SSL Certificate</h1>
 
             {/* URL Input Section */}
             <div className="w-full md:w-2/5 bg-gray-700 p-6 opacity-80 rounded shadow-md">
-                <label className="block text-gray-100 text-sm font-bold mb-2">Enter the URL</label>
-                <input
-                    type="text"
-                    value={url}
-                    onChange={handleChange}
-                    className={`w-full p-2 border-2 outline-none focus:border-sky-500 ${isValid ? 'border-gray-300' : 'border-red-500'} rounded mb-1`}
-                    placeholder="Enter website URL"
-                />
-                {!isValid && <p className="text-red-500 font-bold">Enter a valid URL</p>}
+    <label className="block text-gray-100 text-sm font-bold mb-2">Enter the URL</label>
+    
+    <div className="relative w-full">
+    {/* Input Field */}
+    <input
+        type="text"
+        value={url}
+        onKeyDown={(e) => e.key === "Enter" && fetchSSLDetails()}
+        onChange={handleChange}
+        className={`w-full p-2 pl-10 border-2 rounded outline-none transition focus:border-sky-500 ${
+            isValid ? "border-gray-300" : "border-red-500"
+        }`}
+        placeholder="Enter website URL"
+    />
 
-                <button
-                    onClick={fetchSSLDetails}
-                    className="relative inline-flex mt-2 items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-cyan-500 to-blue-500 hover:text-white focus:ring-4 focus:outline-none focus:ring-cyan-200"
-                    disabled={loading}
-                >
-                    <span className="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white  rounded-md group-hover:bg-transparent">
-                    {loading ? <FaSpinner className="animate-spin mr-2 inline" /> : null}
-                        {loading ? "Fetching..." : "Fetch SSL Details"}
-                    </span>
-                </button>
-            </div>
+    {/* Search Icon (Clickable) */}
+    <FaSearch 
+        onClick={fetchSSLDetails}  
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-2xl text-gray-400 cursor-pointer"
+    />
+
+    {/* Left Icon (Shown when not loading) */}
+    {!loading && (
+        <FaArrowCircleRight className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl text-gray-400" />
+    )}
+
+    {/* Loading Spinner (Shown when loading) */}
+    {loading && (
+        <FaSpinner className="absolute left-2 top-1/4  text-2xl text-blue-500 animate-spin" />
+    )}
+</div>
+
+
+    {!isValid && <p className="text-red-500 font-bold">Enter a valid URL</p>}
+</div>
+
 
             {/* SSL Certificate Details */}
             {certificate && (
-  <div className="mt-6 w-full max-w-lg bg-gray-700 p-4 opacity-80 rounded shadow-md">
-    <h2 className="text-xl font-bold text-white mb-4">SSL Certificate Details</h2>
-    <div className="overflow-x-auto">
-      <table className="w-full border border-gray-300 rounded-lg shadow-sm">
-        <tbody>
-          {[
-            { label: "URL", value: certificate.url },
-            { label: "Issued To", value: `${certificate.issuedTo.commonName} (${certificate.issuedTo.organization})` },
-            { label: "Issued By", value: `${certificate.issuedBy.commonName} (${certificate.issuedBy.organization})` },
-            { label: "Valid From", value: convertToIST(certificate.validFrom) },
-            { label: "Valid To", value: convertToIST(certificate.validTo) },
-          ].map((item, index) => (
-            <tr key={item.label} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-              <th className="px-4 py-3 text-gray-700 font-semibold border-b border-gray-300 text-left">
-                {item.label}:
-              </th>
-              <td className="px-4 py-3 border-b border-gray-300 break-words">{item.value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
+                <div className="mt-6 w-full max-w-lg bg-gray-700 p-4 opacity-80 rounded shadow-md">
+                    <h2 className="text-xl font-bold text-white mb-4">SSL Certificate Details</h2>
+                    <div className="overflow-x-auto">
+                        <table className="w-full border border-gray-300 rounded-lg shadow-sm">
+                            <tbody>
+                                {[
+                                    { label: "URL", value: certificate.url },
+                                    { label: "Issued To", value: `${certificate.issuedToCommonName} (${certificate.issuedToOrganization})` },
+                                    { label: "Issued By", value: `${certificate.issuedByCommonName} (${certificate.issuedByOrganization})` },
+                                    { label: "Valid From", value: convertToIST(certificate.validFrom) },
+                                    { label: "Valid To", value: convertToIST(certificate.validTo) },
+                                ].map((item, index) => (
+                                    <tr key={item.label} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                                        <th className="px-4 py-3 text-gray-700 font-semibold border-b border-gray-300 text-left">
+                                            {item.label}:
+                                        </th>
+                                        <td className="px-4 py-3 border-b border-gray-300 break-words">{item.value}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
 
             {/* Site Manager Details */}
@@ -180,15 +200,15 @@ const Home = () => {
                     <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-2 border-2 border-gray-300 rounded mb-3" placeholder="Enter Email" />
 
                     <button onClick={saveManagerDetails} className="relative inline-flex mt-2 items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-cyan-500 to-blue-500 hover:text-white focus:ring-4 focus:outline-none focus:ring-cyan-200">
-                    <span className="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white  rounded-md group-hover:bg-transparent">
-                    {loading ? <FaSpinner className="animate-spin mr-2 inline" /> : null}
-                        {loading ? "Saving..." : "Send Email"}</span>
+                        <span className="relative px-5 py-2.5 transition-all ease-in duration-75 bg-white  rounded-md group-hover:bg-transparent">
+                            {loading ? <FaSpinner className="animate-spin mr-2 inline" /> : null}
+                            {loading ? "Saving..." : "Send Email"}</span>
                     </button>
                 </div>
             )}
 
             <ToastContainer autoClose={2000} />
-          
+
         </div>
     );
 };

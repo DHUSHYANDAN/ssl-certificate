@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import baseUrl from "../URL";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { FaFilePdf, FaFileExcel } from "react-icons/fa";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 
 const Report = () => {
     const [sslData, setSslData] = useState([]);
@@ -21,13 +21,16 @@ const Report = () => {
         const fetchSSLDetails = async () => {
             try {
                 const response = await axios.get(`${baseUrl}/all-ssl`, { withCredentials: true });
-                if (response.data && response.data.data) {
+                if (response.data?.data) {
                     setSslData(response.data.data);
                 } else {
                     throw new Error("Invalid response structure");
                 }
             } catch (err) {
                 setError(err.message);
+                if (err.response?.status === 401) {
+                    toast.error("Your session has expired, please login.");
+                }
             } finally {
                 setLoading(false);
             }
@@ -36,65 +39,52 @@ const Report = () => {
     }, []);
 
     useEffect(() => {
-        const expired = sslData.filter(ssl => new Date(ssl.validTo) < new Date());
-        setExpiredData(expired);
+        setExpiredData(sslData.filter(ssl => new Date(ssl.validTo) < new Date()));
     }, [sslData]);
 
     useEffect(() => {
         let filtered;
         if (filterType === "expired") {
             filtered = expiredData;
-            setIsExpiredFilter(true);
+            setIsExpiredFilter(true); // Setting expired filter correctly
         } else {
-            filtered = sslData.filter(ssl => {
-                const daysRemaining = isNaN(ssl.daysRemaining) ? null : ssl.daysRemaining; // Ensure it's a number
-
-                if (daysRemaining === null) return false; // Ignore "Expired" entries
-
-                return filterType === "less" ? daysRemaining <= filterDays
-                    : filterType === "greater" ? daysRemaining > filterDays
+            filtered = sslData.filter(({ daysRemaining }) => {
+                if (isNaN(daysRemaining)) return false; // Ignore expired entries
+                return filterType === "less"
+                    ? daysRemaining <= filterDays  && daysRemaining > 0
+                    : filterType === "greater"
+                        ? daysRemaining > filterDays
                         : daysRemaining === Number(filterDays);
             });
-
-            setIsExpiredFilter(false);
+            setIsExpiredFilter(false); // Clearing expired filter when other filters are selected
         }
         setFilteredData(filtered);
     }, [filterDays, filterType, sslData, expiredData]);
 
 
-    const formatToIST = (dateString) => {
-        return new Date(dateString).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-    };
+    const formatToIST = (dateString) =>
+        new Date(dateString).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
-    const exportToExcel = () => {
-        const exportData = filteredData.map(({ url, issuedTo, issuedBy, validFrom, validTo, siteManager, email, daysRemaining }) => ({
+    const exportToExcel = useCallback(() => {
+        const exportData = filteredData.map(({ url, issuedToCommonName, issuedByCommonName, validFrom, validTo, siteManager, email, daysRemaining }) => ({
             "URL": url,
-            "ISSUED TO": issuedTo?.commonName || "N/A",
-            "ISSUED BY": issuedBy?.commonName || "N/A",
+            "ISSUED TO": issuedToCommonName || "N/A",
+            "ISSUED BY": issuedByCommonName || "N/A",
             "VALID FROM": formatToIST(validFrom),
             "VALID TO": formatToIST(validTo),
             "SITE MANAGER": siteManager || "N/A",
             "EMAIL": email || "N/A",
-            "STATUS": isExpiredFilter ? "EXPIRED" : `${daysRemaining} days`,
+            "STATUS": daysRemaining<=0 ? "EXPIRED" : `${daysRemaining} days`,
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(exportData);
-
-        // Apply bold formatting to headers
-        const range = XLSX.utils.decode_range(worksheet["!ref"]);
-        for (let col = range.s.c; col <= range.e.c; col++) {
-            const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
-            if (!worksheet[cellAddress]) continue;
-            worksheet[cellAddress].s = { font: { bold: true } };
-        }
-
-        // Auto-adjust column widths
         worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 20 }));
 
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, isExpiredFilter ? "EXPIRED SSLS" : "EXPIRING SSLS");
         XLSX.writeFile(workbook, isExpiredFilter ? "EXPIRED_SSLS.xlsx" : "EXPIRING_SSLS.xlsx");
-    };
+    }, [filteredData, isExpiredFilter]);
+
     const exportToPDF = () => {
         const doc = new jsPDF();
         doc.text(isExpiredFilter ? "Expired SSL Certificates Report" : "Expiring SSL Certificates Report", 14, 10);
@@ -103,13 +93,13 @@ const Report = () => {
         const tableRows = filteredData.map((ssl, index) => ([
             index + 1,
             ssl.url,
-            ssl.issuedTo?.commonName || "N/A",
-            ssl.issuedBy?.commonName || "N/A",
+            ssl.issuedToCommonName || "N/A",
+            ssl.issuedByCommonName || "N/A",
             formatToIST(ssl.validFrom),
             formatToIST(ssl.validTo),
             ssl.siteManager || "N/A",
             ssl.email || "N/A",
-            isExpiredFilter ? "Expired" : `${ssl.daysRemaining} days`
+            ssl.daysRemaining <=0 ? "Expired" : `${ssl.daysRemaining} days`
         ]));
 
         autoTable(doc, {
@@ -134,7 +124,7 @@ const Report = () => {
                 fontSize: 8,
             },
             columnStyles: {
-                0: { halign: "center", cellWidth: 10 }, // S.No centered
+                0: { halign: "center", cellWidth: 12 }, // S.No centered
                 1: { cellWidth: 30 }, // URL wider
                 2: { cellWidth: 25 }, // Issued To
                 3: { cellWidth: 25 }, // Issued By
@@ -157,7 +147,6 @@ const Report = () => {
 
         doc.save(isExpiredFilter ? "Expired_SSLs_details.pdf" : "Expiring_SSLs_details.pdf");
     };
-
 
     return (
         <div className="px-10 p-2 min-h-screen mx-auto bg-cover bg-center overflow-auto" style={{ backgroundImage: "url('./landingpage2.png')" }}>
@@ -228,7 +217,7 @@ const Report = () => {
 
 
                 <div className="overflow-auto max-h-[80vh]   ">
-                    <table className="w-full overflow-y-auto  text-nowrap mb-2 bg-white border-collapse">
+                    <table className="w-full overflow-y-auto  text-nowrap mb-3 bg-white border-collapse">
                         <thead>
                             <tr className="bg-sky-300 sticky   top-0">
                                 <th className="p-3 border-r-2  text-left">S.No</th>
@@ -244,18 +233,19 @@ const Report = () => {
                         </thead>
                         <tbody className="text-[14px]">
                             {filteredData.map((ssl, index) => (
-                                <tr key={ssl._id} className="border-b">
+                                <tr key={ssl.sslId} className="border-b">
                                     <td className="p-6">{index + 1}</td>
                                     <td className="p-3">{ssl.url}</td>
-                                    <td className="p-3">{ssl.issuedTo?.commonName || "-"}</td>
-                                    <td className="p-3">{ssl.issuedBy?.commonName || "-"}</td>
+                                    <td className="p-3">{ssl.issuedToCommonName || "-"}</td>
+                                    <td className="p-3">{ssl.issuedByCommonName || "-"}</td>
                                     <td className="p-3">{formatToIST(ssl.validFrom)}</td>
-                                    <td className="p-3">{formatToIST(ssl.validTo === "Expired")}</td>
+                                    <td className="p-3">{formatToIST(ssl.validTo)}</td>
                                     <td className="p-3">{ssl.siteManager || "-"}</td>
                                     <td className="p-3">{ssl.email || "-"}</td>
-                                    <td className={`p-3 font-semibold ${isExpiredFilter || ssl.daysRemaining <= "30" ? "text-red-600" : ""}`}>
-                                        {isExpiredFilter ? "Expired" : `${ssl.daysRemaining} days`}
+                                    <td className={`p-3 font-semibold ${isExpiredFilter || ssl.daysRemaining <= 30 ? "text-red-600" : ""}`}>
+                                        {ssl.daysRemaining <=0 ? "Expired" : `${ssl.daysRemaining} days`}
                                     </td>
+
                                 </tr>
                             ))}
                         </tbody>
